@@ -416,31 +416,29 @@ function RootLayout() {
     </div>
   )
 
-  const navExtras = (
-    <>
-      <div className="mt-4 border-t border-[color:var(--app-border)] pt-4">
-        <div className="px-1">
-          <div className="flex items-center gap-2">
-            <Palette className="h-[24px] w-[24px]" />
-            <NativeSelect
-              value={themeMode}
-              className="h-9 text-xs font-normal"
-              aria-label={messages.settings.appearance()}
-              onChange={(event: ChangeEvent<HTMLSelectElement>) => {
-                const value = event.currentTarget.value
-                if (value === "system" || value === "light" || value === "dark" || value === "vivid") {
-                  setThemeMode(value)
-                }
-              }}
-            >
-              <option value="system">{messages.theme.system()}</option>
-              <option value="light">{messages.theme.light()}</option>
-              <option value="dark">{messages.theme.dark()}</option>
-              <option value="vivid">{messages.theme.vivid()}</option>
-            </NativeSelect>
-          </div>
+  const navPreferences = (
+    <div className="mt-4 border-t border-[color:var(--app-border)] pt-4">
+      <div className="px-1">
+        <div className="flex items-center gap-2">
+          <Palette className="h-[24px] w-[24px]" />
+          <NativeSelect
+            value={themeMode}
+            className="h-9 text-xs font-normal"
+            aria-label={messages.settings.appearance()}
+            onChange={(event: ChangeEvent<HTMLSelectElement>) => {
+              const value = event.currentTarget.value
+              if (value === "system" || value === "light" || value === "dark" || value === "vivid") {
+                setThemeMode(value)
+              }
+            }}
+          >
+            <option value="system">{messages.theme.system()}</option>
+            <option value="light">{messages.theme.light()}</option>
+            <option value="dark">{messages.theme.dark()}</option>
+            <option value="vivid">{messages.theme.vivid()}</option>
+          </NativeSelect>
         </div>
-        <div className="mt-4 px-1">
+        <div className="mt-4">
           <div className="flex items-center gap-2">
             <Languages className="h-[24px] w-[24px]" />
             <NativeSelect
@@ -455,34 +453,49 @@ function RootLayout() {
           </div>
         </div>
       </div>
-      <div className="mt-4 border-t border-[color:var(--app-border)] pt-3">
-        <div className="space-y-1.5 px-1 text-sm">
-          <div className="flex items-center justify-between gap-3">
-            <span className="font-medium text-[color:var(--app-text-soft)]">{messages.app.rcloneVersionLabel()}:</span>
-            <span className="font-bold text-[color:var(--app-text)]">
-              {lastServerInfo?.version ?? messages.common.unknown()}
-            </span>
-          </div>
-          <div className="flex items-center justify-between gap-3">
-            <span className="font-medium text-[color:var(--app-text-soft)]">{messages.app.versionLabel()}:</span>
-            <span className="font-bold text-[color:var(--app-text)]">{appVersion}</span>
-          </div>
+    </div>
+  )
+
+  const navFooter = (
+    <div className="app-sidebar-version-block mt-4 border-t border-[color:var(--app-border)] pt-3">
+      <div className="space-y-1.5 px-1 text-sm">
+        <div className="flex items-center justify-between gap-3">
+          <span className="font-medium text-[color:var(--app-text-soft)]">{messages.app.rcloneVersionLabel()}:</span>
+          <span className="font-bold text-[color:var(--app-text)]">
+            {lastServerInfo?.version ?? messages.common.unknown()}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <span className="font-medium text-[color:var(--app-text-soft)]">{messages.app.versionLabel()}:</span>
+          <span className="font-bold text-[color:var(--app-text)]">{appVersion}</span>
         </div>
       </div>
-    </>
+    </div>
   )
 
   const navList = (
-    <div className="flex h-full flex-col">
-      {navLinks}
-      {navExtras}
+    <div className="app-shell-sidebar-content">
+      <div className="app-shell-sidebar-links">
+        {navLinks}
+      </div>
+      <div className="app-shell-sidebar-bottom">
+        {navPreferences}
+        {navFooter}
+      </div>
     </div>
   )
 
   const mobileNavList = (
-    <div className="flex h-full flex-col">
-      {navLinks}
-      {mobileNavExtrasReady ? navExtras : null}
+    <div className="app-shell-sidebar-content">
+      <div className="app-shell-sidebar-links">
+        {navLinks}
+      </div>
+      {mobileNavExtrasReady ? (
+        <div className="app-shell-sidebar-bottom">
+          {navPreferences}
+          {navFooter}
+        </div>
+      ) : null}
     </div>
   )
 
@@ -517,7 +530,7 @@ function RootLayout() {
               ) : null}
             </div>
           </div>
-          <div className="flex items-center gap-2.5">
+          <div className="flex shrink-0 items-center gap-2.5">
             {headerContent ? (
               <div className="hidden min-w-[220px] max-w-[34vw] flex-1 md:block" style={{ width: 304 }}>
                 {headerContent}
@@ -525,24 +538,24 @@ function RootLayout() {
             ) : null}
             {isValidated ? (
               <div
-                className="app-stats-refresh-control relative inline-flex h-9 min-w-[86px] shrink-0 items-center gap-2.5 rounded-full border border-[color:var(--app-border)] bg-[color:var(--app-button-secondary-bg)] pl-3 pr-2.5 text-[color:var(--app-text)] transition-colors hover:border-[color:var(--app-interactive-selected-border)] hover:bg-[color:var(--app-button-secondary-hover-bg)]"
+                className="app-stats-refresh-control relative inline-flex h-7 min-w-[82px] shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--app-border)] bg-[color:var(--app-button-secondary-bg)] pl-2.5 pr-2 text-[color:var(--app-text)] transition-colors hover:border-[color:var(--app-interactive-selected-border)] hover:bg-[color:var(--app-button-secondary-hover-bg)]"
                 aria-hidden="true"
               >
                 {showStatsRefreshSpinner ? (
                   <Loader2
-                    className="app-stats-refresh-icon app-stats-refresh-icon--spin-fast h-[17px] w-[17px] shrink-0 animate-spin text-[color:var(--app-text-soft)]"
+                    className="app-stats-refresh-icon app-stats-refresh-icon--spin-fast h-[14px] w-[14px] shrink-0 -translate-y-[0.5px] animate-spin text-[color:var(--app-text-soft)]"
                     aria-hidden="true"
                   />
                 ) : (
-                  <TimerReset className="app-stats-refresh-icon h-[17px] w-[17px] shrink-0 text-[color:var(--app-text-soft)]" aria-hidden="true" />
+                  <TimerReset className="app-stats-refresh-icon h-[14px] w-[14px] shrink-0 -translate-y-[0.5px] text-[color:var(--app-text-soft)]" aria-hidden="true" />
                 )}
                 <span
-                  className="min-w-[28px] text-xs font-medium tabular-nums"
+                  className="min-w-[22px] text-xs font-semibold leading-none tabular-nums"
                 >
                   {statsPollingOptions.find((option) => Number(option.value) === statsPollingIntervalMs)?.label ?? "5s"}
                 </span>
                 <ChevronDown
-                  className="app-stats-refresh-chevron pointer-events-none absolute right-2.5 h-3.5 w-3.5 shrink-0 text-[color:var(--app-text-soft)]"
+                  className="app-stats-refresh-chevron pointer-events-none absolute right-2 h-[11px] w-[11px] shrink-0 text-[color:var(--app-text-soft)]"
                 />
                 <select
                   value={String(statsPollingIntervalMs)}
@@ -569,7 +582,7 @@ function RootLayout() {
                     ? "warning"
                     : "success"
               }
-              className="inline-flex shrink-0 px-2 py-1 text-[10px] sm:px-2.5 sm:text-[11px]"
+              className="inline-flex h-7 shrink-0 items-center px-3 text-xs font-medium leading-none"
             >
               {connectionBadgeLabel}
             </Badge>
@@ -579,7 +592,7 @@ function RootLayout() {
 
       <div className="app-shell-grid">
         <aside className="app-shell-sidebar hidden border-r border-[color:var(--app-border)] md:block">
-          <nav className="app-fade-in sticky top-[72px]">{navList}</nav>
+          <nav className="app-fade-in app-shell-sidebar-nav">{navList}</nav>
         </aside>
         <main className="app-shell-main">
           <div className="app-fade-in mx-auto max-w-[1400px]">
@@ -596,7 +609,7 @@ function RootLayout() {
             className="absolute inset-0 bg-slate-950/40"
             onClick={closeMobileNav}
           />
-          <div className="absolute inset-y-0 left-0 w-[280px] overflow-y-auto overscroll-contain border-r border-[color:var(--app-border)] bg-[color:var(--app-sheet-bg)] p-4 shadow-[0_24px_60px_rgba(0,0,0,0.2)]">
+          <div className="absolute inset-y-0 left-0 flex h-full w-[280px] flex-col overflow-y-auto overscroll-contain border-r border-[color:var(--app-border)] bg-[color:var(--app-sheet-bg)] p-4 shadow-[0_24px_60px_rgba(0,0,0,0.2)]">
             <div className="mb-4 pr-10">
               <div className="text-sm font-medium text-[color:var(--app-text)]">
                 {messages.app.shortName()}
@@ -613,7 +626,9 @@ function RootLayout() {
             >
               <X className="h-4 w-4" />
             </button>
-            {mobileNavList}
+            <div className="flex min-h-0 flex-1 flex-col">
+              {mobileNavList}
+            </div>
           </div>
         </div>
       ) : null}

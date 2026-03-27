@@ -31,6 +31,7 @@
   --app-table-row-size: 0.875rem;
   --app-shell-pad-x: 20px;
   --app-shell-pad-y: 16px;
+  --app-topbar-height: 52px;
   --app-sidebar-item-h: 52px;
   --app-sidebar-icon-size: 22px;
   --app-header-bg: #f5f7fb;
@@ -453,10 +454,11 @@ optgroup {
 
 .app-shell-header {
   display: flex;
-  height: 52px;
+  min-height: 52px;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  padding-block: 6px;
   padding-inline: var(--app-shell-pad-x);
 }
 
@@ -464,6 +466,7 @@ optgroup {
   display: grid;
   grid-template-columns: 1fr;
   max-width: 1600px;
+  min-height: calc(100vh - var(--app-topbar-height));
   margin-inline: auto;
 }
 
@@ -480,6 +483,37 @@ optgroup {
 .app-shell-sidebar {
   padding: var(--app-shell-pad-y);
   background: var(--app-sidebar-bg);
+}
+
+.app-shell-sidebar-nav {
+  position: sticky;
+  top: var(--app-topbar-height);
+  display: flex;
+  height: calc(100vh - var(--app-topbar-height) - (var(--app-shell-pad-y) * 2));
+  max-height: calc(100vh - var(--app-topbar-height) - (var(--app-shell-pad-y) * 2));
+  min-height: 0;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.app-shell-sidebar-content {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+}
+
+.app-shell-sidebar-links {
+  padding-right: 4px;
+}
+
+.app-shell-sidebar-bottom {
+  margin-top: auto;
+  padding-right: 4px;
+}
+
+.app-sidebar-version-block {
+  padding-bottom: 2px;
 }
 
 .app-shell-main {
