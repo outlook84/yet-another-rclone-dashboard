@@ -1,5 +1,5 @@
 import { useIsFetching } from "@tanstack/react-query"
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react"
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent } from "react"
 import { Link, Navigate, Outlet, useLocation, useNavigationType } from "react-router-dom"
 import {
   BriefcaseBusiness,
@@ -57,13 +57,182 @@ function preloadKnownRoutes() {
   })
 }
 
+function createHeldSpinnerStore(initiallyVisible: boolean) {
+  let visible = initiallyVisible
+  let lastStartedAt = initiallyVisible ? Date.now() : 0
+  let hideTimer: number | null = null
+  const listeners = new Set<() => void>()
+
+  const emit = () => {
+    listeners.forEach((listener) => listener())
+  }
+
+  const clearHideTimer = () => {
+    if (hideTimer !== null) {
+      window.clearTimeout(hideTimer)
+      hideTimer = null
+    }
+  }
+
+  return {
+    getSnapshot: () => visible,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener)
+      return () => {
+        listeners.delete(listener)
+      }
+    },
+    start: () => {
+      clearHideTimer()
+      lastStartedAt = Date.now()
+      if (!visible) {
+        visible = true
+        emit()
+      }
+    },
+    stop: (holdMs: number) => {
+      clearHideTimer()
+      const remainingMs = Math.max(lastStartedAt + holdMs - Date.now(), 0)
+
+      if (remainingMs === 0) {
+        if (visible) {
+          visible = false
+          emit()
+        }
+        return
+      }
+
+      hideTimer = window.setTimeout(() => {
+        hideTimer = null
+        if (visible) {
+          visible = false
+          emit()
+        }
+      }, remainingMs)
+    },
+    cleanup: () => {
+      clearHideTimer()
+      listeners.clear()
+    },
+  }
+}
+
+function createConnectionFailureStore() {
+  let consecutiveFailures = 0
+  let lastHandledSuccessAt = 0
+  let lastHandledErrorAt = 0
+  const listeners = new Set<() => void>()
+
+  const emit = () => {
+    listeners.forEach((listener) => listener())
+  }
+
+  return {
+    getSnapshot: () => consecutiveFailures,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener)
+      return () => {
+        listeners.delete(listener)
+      }
+    },
+    sync: (input: {
+      isValidated: boolean
+      dataUpdatedAt: number
+      errorUpdatedAt: number
+    }) => {
+      let changed = false
+
+      if (!input.isValidated) {
+        if (consecutiveFailures !== 0 || lastHandledSuccessAt !== 0 || lastHandledErrorAt !== 0) {
+          consecutiveFailures = 0
+          lastHandledSuccessAt = 0
+          lastHandledErrorAt = 0
+          changed = true
+        }
+      } else {
+        if (input.dataUpdatedAt > 0 && input.dataUpdatedAt !== lastHandledSuccessAt) {
+          lastHandledSuccessAt = input.dataUpdatedAt
+          if (consecutiveFailures !== 0) {
+            consecutiveFailures = 0
+            changed = true
+          }
+        }
+
+        if (input.errorUpdatedAt > 0 && input.errorUpdatedAt !== lastHandledErrorAt) {
+          lastHandledErrorAt = input.errorUpdatedAt
+          consecutiveFailures += 1
+          changed = true
+        }
+      }
+
+      if (changed) {
+        emit()
+      }
+    },
+    cleanup: () => {
+      listeners.clear()
+    },
+  }
+}
+
+function useConsecutiveConnectionFailures(input: {
+  isValidated: boolean
+  dataUpdatedAt: number
+  errorUpdatedAt: number
+}) {
+  const [store] = useState(createConnectionFailureStore)
+  const consecutiveFailures = useSyncExternalStore(
+    store.subscribe,
+    store.getSnapshot,
+    store.getSnapshot,
+  )
+
+  useEffect(() => {
+    store.sync(input)
+  }, [input, store])
+
+  useEffect(() => {
+    return () => {
+      store.cleanup()
+    }
+  }, [store])
+
+  return consecutiveFailures
+}
+
+function useHeldSpinner(active: boolean, holdMs: number) {
+  const [store] = useState(() => createHeldSpinnerStore(active))
+
+  const visible = useSyncExternalStore(
+    store.subscribe,
+    store.getSnapshot,
+    store.getSnapshot,
+  )
+
+  useEffect(() => {
+    if (active) {
+      store.start()
+      return
+    }
+
+    store.stop(holdMs)
+  }, [active, holdMs, store])
+
+  useEffect(() => {
+    return () => {
+      store.cleanup()
+    }
+  }, [store])
+
+  return active || visible
+}
+
 function RootLayout() {
   const { locale, setLocale, messages } = useI18n()
   const location = useLocation()
   const navigationType = useNavigationType()
   const [opened, setOpened] = useState(false)
   const [mobileNavExtrasReady, setMobileNavExtrasReady] = useState(false)
-  const [showStatsRefreshSpinner, setShowStatsRefreshSpinner] = useState(false)
   const lastValidatedAt = useConnectionStore((state) => state.lastValidatedAt)
   const lastServerInfo = useConnectionStore((state) => state.lastServerInfo)
   const clearValidation = useConnectionStore((state) => state.clearValidation)
@@ -77,15 +246,10 @@ function RootLayout() {
   const getLastVisitedRoute = useLastVisitedRouteStore((state) => state.getLastVisitedRoute)
   const isValidated = Boolean(lastValidatedAt && lastServerInfo)
   const requiresConnection = location.pathname !== "/"
-  const [consecutiveFailures, setConsecutiveFailures] = useState(0)
   const activeStatsFetches = useIsFetching({
     queryKey: queryKeys.combinedStats(connectionScope),
   })
-  const lastHandledErrorAtRef = useRef(0)
-  const lastHandledSuccessAtRef = useRef(0)
   const hasPrefetchedRoutesRef = useRef(false)
-  const wasStatsRefreshingRef = useRef(false)
-  const statsRefreshHoldUntilRef = useRef(0)
   const appVersion = packageJson.version
   const statsPollingOptions = useMemo(
     () => [
@@ -113,33 +277,20 @@ function RootLayout() {
     [location.pathname, navItems],
   )
   const connectionHealthQuery = useConnectionHealthQuery()
-
-  useEffect(() => {
-    if (!isValidated) {
-      setConsecutiveFailures(0)
-      return
-    }
-
-    if (
-      connectionHealthQuery.dataUpdatedAt > 0 &&
-      connectionHealthQuery.dataUpdatedAt !== lastHandledSuccessAtRef.current
-    ) {
-      lastHandledSuccessAtRef.current = connectionHealthQuery.dataUpdatedAt
-      setConsecutiveFailures(0)
-    }
-
-    if (
-      connectionHealthQuery.errorUpdatedAt > 0 &&
-      connectionHealthQuery.errorUpdatedAt !== lastHandledErrorAtRef.current
-    ) {
-      lastHandledErrorAtRef.current = connectionHealthQuery.errorUpdatedAt
-      setConsecutiveFailures((current) => current + 1)
-    }
-  }, [
-    connectionHealthQuery.dataUpdatedAt,
-    connectionHealthQuery.errorUpdatedAt,
+  const consecutiveFailures = useConsecutiveConnectionFailures({
     isValidated,
-  ])
+    dataUpdatedAt: connectionHealthQuery.dataUpdatedAt,
+    errorUpdatedAt: connectionHealthQuery.errorUpdatedAt,
+  })
+  const closeMobileNav = () => {
+    setMobileNavExtrasReady(false)
+    setOpened(false)
+  }
+
+  const openMobileNav = () => {
+    setMobileNavExtrasReady(false)
+    setOpened(true)
+  }
 
   useEffect(() => {
     if (isValidated && consecutiveFailures >= MAX_CONSECUTIVE_CONNECTION_FAILURES) {
@@ -172,7 +323,6 @@ function RootLayout() {
 
   useEffect(() => {
     if (!opened) {
-      setMobileNavExtrasReady(false)
       return
     }
 
@@ -193,37 +343,7 @@ function RootLayout() {
         ? messages.connection.checking()
         : messages.connection.connected()
   const isStatsRefreshing = activeStatsFetches > 0
-
-  useEffect(() => {
-    const startedRefreshing = isStatsRefreshing && !wasStatsRefreshingRef.current
-    wasStatsRefreshingRef.current = isStatsRefreshing
-
-    if (startedRefreshing) {
-      statsRefreshHoldUntilRef.current = Date.now() + 650
-      setShowStatsRefreshSpinner(true)
-      return
-    }
-
-    if (isStatsRefreshing) {
-      return
-    }
-
-    const remainingMs = statsRefreshHoldUntilRef.current - Date.now()
-    if (remainingMs <= 0) {
-      setShowStatsRefreshSpinner(false)
-      return
-    }
-
-    const timer = window.setTimeout(() => {
-      if (!wasStatsRefreshingRef.current) {
-        setShowStatsRefreshSpinner(false)
-      }
-    }, remainingMs)
-
-    return () => {
-      window.clearTimeout(timer)
-    }
-  }, [isStatsRefreshing])
+  const showStatsRefreshSpinner = useHeldSpinner(isStatsRefreshing, 650)
 
   if (!isValidated && requiresConnection) {
     return <Navigate to="/" replace state={{ redirectedFrom: location.pathname }} />
@@ -245,11 +365,11 @@ function RootLayout() {
         const navLabelClassName = "font-medium"
 
         return (
-          <Link
+            <Link
             key={item.to}
             to={item.to}
             state={item.to === "/" ? { manualConnect: true } : undefined}
-            onClick={() => setOpened(false)}
+            onClick={closeMobileNav}
             onMouseEnter={() => preloadRoute(item.to)}
             onFocus={() => preloadRoute(item.to)}
             className={cn(
@@ -375,7 +495,7 @@ function RootLayout() {
               variant="ghost"
               size="icon"
               className="md:hidden"
-              onClick={() => setOpened(true)}
+              onClick={openMobileNav}
               aria-label={messages.nav.openNavigation()}
             >
               <Menu className="h-4 w-4" />
@@ -474,7 +594,7 @@ function RootLayout() {
             type="button"
             aria-label={messages.common.close()}
             className="absolute inset-0 bg-slate-950/40"
-            onClick={() => setOpened(false)}
+            onClick={closeMobileNav}
           />
           <div className="absolute inset-y-0 left-0 w-[280px] overflow-y-auto overscroll-contain border-r border-[color:var(--app-border)] bg-[color:var(--app-sheet-bg)] p-4 shadow-[0_24px_60px_rgba(0,0,0,0.2)]">
             <div className="mb-4 pr-10">
@@ -488,7 +608,7 @@ function RootLayout() {
             <button
               type="button"
               className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-[10px] text-[color:var(--app-text-soft)] transition-colors hover:bg-[color:var(--app-hover-surface)] hover:text-[color:var(--app-text)]"
-              onClick={() => setOpened(false)}
+              onClick={closeMobileNav}
               aria-label={messages.common.close()}
             >
               <X className="h-4 w-4" />
