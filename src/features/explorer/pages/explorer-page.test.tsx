@@ -1,0 +1,526 @@
+// @vitest-environment jsdom
+
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { ExplorerPage } from "@/features/explorer/pages/explorer-page"
+import { useSavedConnectionsStore } from "@/features/auth/store/saved-connections-store"
+import { useExplorerStore } from "@/features/explorer/store/explorer-store"
+import { useExplorerUIStore } from "@/features/explorer/store/explorer-ui-store"
+import { useConnectionStore } from "@/shared/store/connection-store"
+import { renderWithProviders } from "@/test/render-with-providers"
+
+const remotesQueryMock = vi.fn()
+const explorerListQueryMock = vi.fn()
+const fsInfoQueryMock = vi.fn()
+const usageQueryMock = vi.fn()
+const mkdirMutationMock = vi.fn()
+const batchMutationMock = vi.fn()
+const deleteFileMutationMock = vi.fn()
+const deleteDirMutationMock = vi.fn()
+const copyDirMutationMock = vi.fn()
+const copyFileMutationMock = vi.fn()
+const moveDirMutationMock = vi.fn()
+const moveFileMutationMock = vi.fn()
+const publicLinkMutationMock = vi.fn()
+
+vi.mock("@/features/remotes/api/use-remotes-query", () => ({
+  useRemotesQuery: () => remotesQueryMock(),
+}))
+
+vi.mock("@/features/explorer/api/use-explorer-list-query", () => ({
+  useExplorerListQuery: () => explorerListQueryMock(),
+}))
+
+vi.mock("@/features/explorer/api/use-explorer-fs-info-query", () => ({
+  useExplorerFsInfoQuery: () => fsInfoQueryMock(),
+}))
+
+vi.mock("@/features/explorer/api/use-explorer-usage-query", () => ({
+  useExplorerUsageQuery: () => usageQueryMock(),
+}))
+
+vi.mock("@/features/explorer/api/use-explorer-mkdir-mutation", () => ({
+  useExplorerMkdirMutation: () => mkdirMutationMock(),
+}))
+
+vi.mock("@/features/explorer/api/use-explorer-batch-mutation", () => ({
+  useExplorerBatchMutation: () => batchMutationMock(),
+}))
+
+vi.mock("@/features/explorer/api/use-explorer-delete-file-mutation", () => ({
+  useExplorerDeleteFileMutation: () => deleteFileMutationMock(),
+}))
+
+vi.mock("@/features/explorer/api/use-explorer-delete-dir-mutation", () => ({
+  useExplorerDeleteDirMutation: () => deleteDirMutationMock(),
+}))
+
+vi.mock("@/features/explorer/api/use-explorer-copy-dir-mutation", () => ({
+  useExplorerCopyDirMutation: () => copyDirMutationMock(),
+}))
+
+vi.mock("@/features/explorer/api/use-explorer-copy-file-mutation", () => ({
+  useExplorerCopyFileMutation: () => copyFileMutationMock(),
+}))
+
+vi.mock("@/features/explorer/api/use-explorer-move-dir-mutation", () => ({
+  useExplorerMoveDirMutation: () => moveDirMutationMock(),
+}))
+
+vi.mock("@/features/explorer/api/use-explorer-move-file-mutation", () => ({
+  useExplorerMoveFileMutation: () => moveFileMutationMock(),
+}))
+
+vi.mock("@/features/explorer/api/use-explorer-public-link-mutation", () => ({
+  useExplorerPublicLinkMutation: () => publicLinkMutationMock(),
+}))
+
+// In jsdom there are no real scroll container dimensions, so useVirtualizer
+// would produce an empty virtual items list. Mock it to render every item.
+vi.mock("@tanstack/react-virtual", () => ({
+  useVirtualizer: ({ count, estimateSize }: { count: number; estimateSize: () => number }) => ({
+    getTotalSize: () => count * estimateSize(),
+    getVirtualItems: () =>
+      Array.from({ length: count }, (_, i) => ({
+        index: i,
+        start: i * estimateSize(),
+        size: estimateSize(),
+        key: i,
+        lane: 0,
+      })),
+    measureElement: () => undefined,
+  }),
+}))
+
+describe("ExplorerPage", () => {
+  afterEach(() => {
+    cleanup()
+    vi.restoreAllMocks()
+  })
+
+  beforeEach(() => {
+    useExplorerUIStore.setState({
+      scopeKey: null,
+      actionsByScope: {},
+      inspectDirectoryPaths: {},
+      selectionModes: {},
+      selectedPathsByTab: {},
+    })
+
+    useConnectionStore.setState({
+      baseUrl: "http://localhost:5572",
+      authMode: "basic",
+      basicCredentials: {
+        username: "gui",
+        password: "secret",
+      },
+      lastServerInfo: null,
+    })
+    useSavedConnectionsStore.setState({
+      profiles: [
+        {
+          id: "demo-profile",
+          name: "Demo",
+          baseUrl: "http://localhost:5572",
+          authMode: "basic",
+          basicCredentials: { username: "gui", password: "secret" },
+          updatedAt: "2026-03-27T10:00:00.000Z",
+          syncEnabled: true,
+        },
+      ],
+      selectedProfileId: "demo-profile",
+    })
+    useExplorerStore.getState().setScope("http://localhost:5572::basic::gui")
+    useExplorerUIStore.getState().setScope("http://localhost:5572::basic::gui")
+    useExplorerStore.getState().setLocation("demo", "folder")
+
+    remotesQueryMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: [{ name: "demo" }, { name: "other" }],
+    })
+
+    explorerListQueryMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: {
+        items: [
+          {
+            name: "alpha",
+            path: "folder/alpha",
+            type: "dir",
+            size: undefined,
+            modTime: "2026-03-21T00:00:00Z",
+          },
+          {
+            name: "file.txt",
+            path: "folder/file.txt",
+            type: "file",
+            size: 123,
+            modTime: "2026-03-22T00:00:00Z",
+          },
+          {
+            name: "zeta.log",
+            path: "folder/zeta.log",
+            type: "file",
+            size: 99,
+            modTime: "2026-03-20T00:00:00Z",
+          },
+        ],
+      },
+      refetch: vi.fn(),
+    })
+
+    fsInfoQueryMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: {
+        hashes: ["MD5"],
+        features: {},
+      },
+    })
+
+    usageQueryMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: {
+        used: 1024,
+        free: 2048,
+        total: 3072,
+      },
+    })
+
+    mkdirMutationMock.mockReturnValue({
+      isPending: false,
+      isSuccess: false,
+      error: null,
+      variables: undefined,
+      mutateAsync: vi.fn(),
+    })
+
+    batchMutationMock.mockReturnValue({
+      isPending: false,
+      isSuccess: false,
+      error: null,
+      variables: undefined,
+      mutateAsync: vi.fn(),
+    })
+
+    deleteFileMutationMock.mockReturnValue({
+      isPending: false,
+      isSuccess: false,
+      error: null,
+      variables: undefined,
+      mutateAsync: vi.fn(),
+    })
+
+    deleteDirMutationMock.mockReturnValue({
+      isPending: false,
+      isSuccess: false,
+      error: null,
+      variables: undefined,
+      mutateAsync: vi.fn(),
+    })
+
+    copyDirMutationMock.mockReturnValue({
+      isPending: false,
+      isSuccess: false,
+      error: null,
+      variables: undefined,
+      mutateAsync: vi.fn(),
+    })
+
+    copyFileMutationMock.mockReturnValue({
+      isPending: false,
+      isSuccess: false,
+      error: null,
+      variables: undefined,
+      mutateAsync: vi.fn(),
+    })
+
+    moveDirMutationMock.mockReturnValue({
+      isPending: false,
+      isSuccess: false,
+      error: null,
+      variables: undefined,
+      mutateAsync: vi.fn(),
+    })
+
+    moveFileMutationMock.mockReturnValue({
+      isPending: false,
+      isSuccess: false,
+      error: null,
+      variables: undefined,
+      mutateAsync: vi.fn(),
+    })
+
+    publicLinkMutationMock.mockReturnValue({
+      isPending: false,
+      isSuccess: false,
+      error: null,
+      variables: undefined,
+      mutateAsync: vi.fn(),
+    })
+  })
+
+  it("shows share link action only when backend reports native support", () => {
+    renderWithProviders(<ExplorerPage />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Select" }))
+    const fileRow = screen.getByText("file.txt").closest('[role="row"]')
+    if (!fileRow) {
+      throw new Error("file row not found")
+    }
+    fireEvent.click(within(fileRow as HTMLElement).getByRole("checkbox"))
+    expect(screen.queryByRole("button", { name: "Share Link" })).toBeNull()
+
+    cleanup()
+    useExplorerUIStore.setState({
+      scopeKey: null,
+      actionsByScope: {},
+      inspectDirectoryPaths: {},
+      selectionModes: {},
+      selectedPathsByTab: {},
+    })
+
+    fsInfoQueryMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: {
+        hashes: ["MD5"],
+        features: {
+          PublicLink: true,
+        },
+      },
+    })
+
+    renderWithProviders(<ExplorerPage />)
+
+    const supportedFileRow = screen.getByText("file.txt").closest('[role="row"]')
+    if (!supportedFileRow) {
+      throw new Error("file row not found")
+    }
+    fireEvent.click(screen.getByRole("button", { name: "Select" }))
+    fireEvent.click(within(supportedFileRow as HTMLElement).getByRole("checkbox"))
+    expect(screen.getByRole("button", { name: "Share Link" })).not.toBeNull()
+  })
+
+  it("does not delete a file when confirmation is rejected", async () => {
+    const mutateAsync = vi.fn()
+    deleteFileMutationMock.mockReturnValue({
+      isPending: false,
+      isSuccess: false,
+      error: null,
+      variables: undefined,
+      mutateAsync,
+    })
+
+    renderWithProviders(<ExplorerPage />)
+    const fileRow = screen.getByText("file.txt").closest('[role="row"]')
+    if (!fileRow) {
+      throw new Error("file row not found")
+    }
+
+    fireEvent.click(screen.getByRole("button", { name: "Select" }))
+    fireEvent.click(within(fileRow as HTMLElement).getByRole("checkbox"))
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }))
+    const dialog = await screen.findByRole("dialog")
+
+    expect(within(dialog).getByText('Delete "folder/file.txt"? This cannot be undone.')).not
+      .toBeNull()
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))
+
+    expect(mutateAsync).not.toHaveBeenCalled()
+  })
+
+  it("applies the current explorer location to copy destination", () => {
+    renderWithProviders(<ExplorerPage />)
+
+    const fileRow = screen.getByText("file.txt").closest('[role="row"]')
+    if (!fileRow) {
+      throw new Error("file row not found")
+    }
+
+    fireEvent.click(screen.getByRole("button", { name: "Select" }))
+    fireEvent.click(within(fileRow as HTMLElement).getByRole("checkbox"))
+    fireEvent.click(screen.getByRole("button", { name: "Copy" }))
+
+    expect(screen.getByText("Copy pending - navigate to the target directory, then apply")).not.toBeNull()
+    expect(screen.getByText("Source: demo:folder/file.txt")).not.toBeNull()
+    expect(screen.getByText("Destination: demo:folder/file.txt")).not.toBeNull()
+  })
+
+  it("keeps pending file actions in sync when the current path is changed manually", () => {
+    renderWithProviders(<ExplorerPage />)
+
+    const fileRow = screen.getByText("file.txt").closest('[role="row"]')
+    if (!fileRow) {
+      throw new Error("file row not found")
+    }
+
+    fireEvent.click(screen.getByRole("button", { name: "Select" }))
+    fireEvent.click(within(fileRow as HTMLElement).getByRole("checkbox"))
+    fireEvent.click(screen.getByRole("button", { name: "Copy" }))
+    expect(screen.getByRole("button", { name: "Apply" })).not.toBeNull()
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit path" }))
+    const pathInput = screen.getByDisplayValue("demo:folder")
+    fireEvent.change(pathInput, {
+      target: { value: "demo:other-folder" },
+    })
+    fireEvent.blur(pathInput)
+
+    expect(screen.getByRole("button", { name: "Apply" })).not.toBeNull()
+    expect(screen.getByText("Destination: demo:other-folder/file.txt")).not.toBeNull()
+  })
+
+  it("filters explorer items by name", () => {
+    renderWithProviders(<ExplorerPage />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Filter" }))
+    fireEvent.change(screen.getByPlaceholderText("Filter by name"), {
+      target: { value: "zeta" },
+    })
+
+    expect(screen.getByText("zeta.log")).not.toBeNull()
+    expect(screen.queryByText("file.txt")).toBeNull()
+    expect(screen.queryByText("alpha")).toBeNull()
+  })
+
+  it("keeps directories ahead of files while sorting", () => {
+    renderWithProviders(<ExplorerPage />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Name ↑" }))
+
+    const rows = screen.getAllByRole("row")
+    const rowTexts = rows.map((row) => row.textContent ?? "")
+
+    expect(rowTexts[1]).toContain("alpha")
+    expect(rowTexts[2]).toContain("zeta.log")
+    expect(rowTexts[3]).toContain("file.txt")
+  })
+
+  it("formats file size for display", () => {
+    renderWithProviders(<ExplorerPage />)
+
+    expect(screen.getByText("123 B")).not.toBeNull()
+    expect(screen.getByText("99 B")).not.toBeNull()
+  })
+
+  it("formats modified time for display", () => {
+    renderWithProviders(<ExplorerPage />)
+
+    expect(screen.getByText("2026/03/22 08:00")).not.toBeNull()
+    expect(screen.getByText("2026/03/21 08:00")).not.toBeNull()
+  })
+
+  it("deletes mixed file and directory selections through the batch mutation", async () => {
+    const mutateAsync = vi.fn().mockResolvedValue([])
+    batchMutationMock.mockReturnValue({
+      isPending: false,
+      isSuccess: false,
+      error: null,
+      variables: undefined,
+      mutateAsync,
+    })
+
+    renderWithProviders(<ExplorerPage />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Select" }))
+
+    const alphaRow = screen.getByText("alpha").closest('[role="row"]')
+    const fileRow = screen.getByText("file.txt").closest('[role="row"]')
+    if (!alphaRow || !fileRow) {
+      throw new Error("selection rows not found")
+    }
+
+    fireEvent.click(within(alphaRow as HTMLElement).getByRole("checkbox"))
+    fireEvent.click(within(fileRow as HTMLElement).getByRole("checkbox"))
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }))
+
+    const dialog = await screen.findByRole("dialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }))
+
+    await waitFor(() => {
+      expect(mutateAsync).toHaveBeenCalledWith({
+        remote: "demo",
+        currentPath: "folder",
+        inputs: [
+          { _path: "operations/purge", fs: "demo:", remote: "folder/alpha" },
+          { _path: "operations/deletefile", fs: "demo:", remote: "folder/file.txt" },
+        ],
+      })
+    })
+  })
+
+  it("starts a pending copy from the row action menu", async () => {
+    renderWithProviders(<ExplorerPage />)
+
+    const alphaRow = screen.getByText("alpha").closest('[role="row"]')
+    if (!alphaRow) {
+      throw new Error("alpha row not found")
+    }
+
+    const actionsButton = within(alphaRow as HTMLElement).getByRole("button", { name: "Item actions" })
+    fireEvent.pointerDown(actionsButton, { button: 0, ctrlKey: false })
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Copy" }))
+
+    expect(screen.getByText("Source: demo:folder/alpha")).not.toBeNull()
+    expect(screen.getByText("Destination: demo:folder/alpha")).not.toBeNull()
+    expect(screen.getByRole("button", { name: "Apply" })).not.toBeNull()
+  })
+
+  it("renames a file through the rename sheet", async () => {
+    const mutateAsync = vi.fn().mockResolvedValue(undefined)
+    moveFileMutationMock.mockReturnValue({
+      isPending: false,
+      isSuccess: false,
+      error: null,
+      variables: undefined,
+      mutateAsync,
+    })
+
+    renderWithProviders(<ExplorerPage />)
+
+    const fileRow = screen.getByText("file.txt").closest('[role="row"]')
+    if (!fileRow) {
+      throw new Error("file row not found")
+    }
+
+    fireEvent.click(screen.getByRole("button", { name: "Select" }))
+    fireEvent.click(within(fileRow as HTMLElement).getByRole("checkbox"))
+    fireEvent.click(screen.getByRole("button", { name: "Rename" }))
+
+    const dialog = await screen.findByRole("dialog")
+    const renameInput = within(dialog).getByDisplayValue("file.txt")
+    fireEvent.change(renameInput, { target: { value: "renamed.txt" } })
+    fireEvent.click(within(dialog).getByRole("button", { name: "Rename" }))
+
+    expect(mutateAsync).toHaveBeenCalledWith({
+      srcRemote: "demo",
+      currentPath: "folder",
+      dstRemote: "demo",
+      items: [
+        {
+          srcPath: "folder/file.txt",
+          dstPath: "folder/renamed.txt",
+        },
+      ],
+    })
+  })
+
+  it("switches remote and path when a full remote:path draft is applied", () => {
+    renderWithProviders(<ExplorerPage />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit path" }))
+    const pathInput = screen.getByDisplayValue("demo:folder")
+    fireEvent.change(pathInput, {
+      target: { value: "other:archive/2026" },
+    })
+    fireEvent.blur(pathInput)
+
+    expect(useExplorerStore.getState().currentRemote).toBe("other")
+    expect(useExplorerStore.getState().currentPath).toBe("archive/2026")
+  })
+})

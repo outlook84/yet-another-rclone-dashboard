@@ -1,0 +1,63 @@
+import { createElement, Fragment } from "react"
+import type { AppMessages, MessageSet } from "@/shared/i18n/messages/types"
+
+const overviewMessages: MessageSet<AppMessages["overview"]> = {
+  en: {
+    title: () => "Overview",
+    rcloneVersion: () => "Rclone Version",
+    connectedRemotes: () => "Connected Remotes",
+    currentEndpoint: () => "Current Endpoint",
+    latency: () => "Latency",
+    elapsedTime: () => "Elapsed Time",
+    throughput: () => "Speed",
+    currentThroughput: () => "Current",
+    activeTransfers: () => "Active Transfers",
+    completedTransfers: () => "Completed Transfers",
+    transferredBytes: () => "Transferred Bytes",
+    errorCount: () => "Error Count",
+    deletes: () => "Deletes",
+    statsSummary: () => "Stats Summary",
+    ago: () => "ago",
+    now: () => "Now",
+    failedToLoadStats: () => "Failed To Load Overview Stats",
+    failedToLoadRemotes: () => "Failed To Load Remotes",
+    memoryUsage: () => "Memory Usage",
+    resetStats: () => "Reset Stats",
+    confirmResetStats: () => "Are you sure you want to reset all transfer statistics?",
+    statsResetSuccess: () => "Statistics have been reset",
+    latestGlobalError: () => "Latest Global Error",
+    noRecentErrors: () => "No recent errors.",
+    noRecentErrorsDetail: (code) =>
+      createElement(Fragment, null, "Waiting for ", code, " to report a value."),
+  },
+  "zh-CN": {
+    title: () => "概览",
+    rcloneVersion: () => "Rclone 版本",
+    connectedRemotes: () => "已连接存储",
+    currentEndpoint: () => "当前端点",
+    latency: () => "延迟",
+    elapsedTime: () => "运行时长",
+    throughput: () => "速度",
+    currentThroughput: () => "当前",
+    activeTransfers: () => "活动传输",
+    completedTransfers: () => "已完成传输",
+    transferredBytes: () => "已传输字节",
+    errorCount: () => "错误数",
+    deletes: () => "删除数",
+    statsSummary: () => "统计摘要",
+    ago: () => "前",
+    now: () => "现在",
+    failedToLoadStats: () => "加载概览统计失败",
+    failedToLoadRemotes: () => "加载存储失败",
+    memoryUsage: () => "内存占用",
+    resetStats: () => "重置统计",
+    confirmResetStats: () => "确定要重置所有传输统计吗？",
+    statsResetSuccess: () => "统计数据已重置",
+    latestGlobalError: () => "最近全局错误",
+    noRecentErrors: () => "暂无最近错误。",
+    noRecentErrorsDetail: (code) =>
+      createElement(Fragment, null, "等待 ", code, " 返回值。"),
+  },
+}
+
+export { overviewMessages }
