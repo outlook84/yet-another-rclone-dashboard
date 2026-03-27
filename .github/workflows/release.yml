@@ -1,0 +1,150 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Tag to release, for example v0.1.0"
+        required: true
+        type: string
+      target_commitish:
+        description: "Branch or commit to tag when the tag does not already exist"
+        required: false
+        default: "main"
+        type: string
+      release_name:
+        description: "Optional release title"
+        required: false
+        type: string
+      prerelease:
+        description: "Mark the release as a prerelease"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event_name == 'push' && github.ref_name || inputs.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Resolve release metadata
+        id: meta
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_TAG_NAME: ${{ github.ref_name }}
+          INPUT_TAG_NAME: ${{ inputs.tag_name }}
+          INPUT_TARGET: ${{ inputs.target_commitish }}
+          INPUT_RELEASE_NAME: ${{ inputs.release_name }}
+          INPUT_PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          if [ "$EVENT_NAME" = "push" ]; then
+            tag_name="$PUSH_TAG_NAME"
+            target_commitish=""
+            prerelease="false"
+          else
+            tag_name="$INPUT_TAG_NAME"
+            target_commitish="$INPUT_TARGET"
+            prerelease="$INPUT_PRERELEASE"
+          fi
+
+          release_name="$INPUT_RELEASE_NAME"
+          if [ -z "$release_name" ]; then
+            release_name="$tag_name"
+          fi
+
+          asset_name="yet-another-rclone-dashboard-${tag_name}.zip"
+
+          {
+            echo "tag_name=$tag_name"
+            echo "target_commitish=$target_commitish"
+            echo "release_name=$release_name"
+            echo "prerelease=$prerelease"
+            echo "asset_name=$asset_name"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag commit belongs to main
+        if: github.event_name == 'push'
+        run: |
+          git fetch origin main --force
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Package dist
+        env:
+          ASSET_NAME: ${{ steps.meta.outputs.asset_name }}
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+          from zipfile import ZIP_DEFLATED, ZipFile
+
+          dist_dir = Path("dist")
+          asset_path = Path(os.environ["ASSET_NAME"])
+
+          with ZipFile(asset_path, "w", compression=ZIP_DEFLATED) as archive:
+              for file in dist_dir.rglob("*"):
+                  if file.is_file():
+                      archive.write(file, file.relative_to(dist_dir.parent))
+          PY
+
+      - name: Create or update GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ steps.meta.outputs.tag_name }}
+          TARGET_COMMITISH: ${{ steps.meta.outputs.target_commitish }}
+          RELEASE_NAME: ${{ steps.meta.outputs.release_name }}
+          PRERELEASE: ${{ steps.meta.outputs.prerelease }}
+          ASSET_NAME: ${{ steps.meta.outputs.asset_name }}
+        run: |
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release upload "$TAG_NAME" "$ASSET_NAME" --clobber
+            exit 0
+          fi
+
+          args=(
+            "$TAG_NAME"
+            "$ASSET_NAME"
+            --title "$RELEASE_NAME"
+            --generate-notes
+          )
+
+          if [ "$PRERELEASE" = "true" ]; then
+            args+=(--prerelease)
+          fi
+
+          if [ -n "$TARGET_COMMITISH" ]; then
+            args+=(--target "$TARGET_COMMITISH")
+          fi
+
+          gh release create "${args[@]}"
