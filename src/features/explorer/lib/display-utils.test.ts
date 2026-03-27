@@ -6,11 +6,14 @@ import {
   nextSortMode,
   sortLabel,
 } from "@/features/explorer/lib/display-utils"
+import { formatLocalizedCompactDateTime } from "@/shared/i18n/formatters"
 
 describe("display-utils", () => {
   it("formats bytes and timestamps for explorer display", () => {
     expect(formatBytes(1536)).toBe("1.5 KB")
-    expect(formatModTime("2026-03-22T00:00:00Z")).toBe("2026/03/22 08:00")
+    expect(formatModTime("2026-03-22T00:00:00Z")).toBe(
+      formatLocalizedCompactDateTime("2026-03-22T00:00:00Z", "en"),
+    )
   })
 
   it("toggles sort modes and labels", () => {
