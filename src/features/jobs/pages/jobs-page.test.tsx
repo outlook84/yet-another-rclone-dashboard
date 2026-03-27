@@ -118,6 +118,6 @@ describe("JobsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /Active Transfers/i }))
 
     expect(screen.queryByText("Manual upload.bin")).toBeNull()
-    expect(screen.getByText("1 group 路 128 B/s")).not.toBeNull()
+    expect(screen.getByText("1 group · 128 B/s")).not.toBeNull()
   })
 })

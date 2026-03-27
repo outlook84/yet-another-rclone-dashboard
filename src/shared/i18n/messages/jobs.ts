@@ -9,7 +9,7 @@ const jobsMessages: MessageSet<AppMessages["jobs"]> = {
     jobStopRequestedMessage: () => "Jobs and stats were refreshed after sending the stop request.",
     stopJobFailed: () => "Stop Job Failed",
     activeTransfers: () => "Active Transfers",
-    activeTransferSummary: (count, speed) => `${count} group${count === 1 ? "" : "s"} 路 ${speed}`,
+    activeTransferSummary: (count, speed) => `${count} group${count === 1 ? "" : "s"} · ${speed}`,
     idleSummary: () => "Idle",
     transferringFiles: (count) => `Transferring ${count} file${count === 1 ? "" : "s"}`,
     stopJob: () => "Stop Job",
