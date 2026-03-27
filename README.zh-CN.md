@@ -61,16 +61,53 @@
 
 #### 桌面环境 (本地运行)
 ```bash
-rclone rcd --rc-files="path/to/dist" --rc-no-auth --rc-addr=127.0.0.1:5572 --rc-allow-origin=http://127.0.0.1:5572
+rclone rcd \
+  --rc-files="path/to/build" \
+  --rc-no-auth \
+  --rc-addr=127.0.0.1:5572 \
+  --rc-allow-origin=http://127.0.0.1:5572
 ```
 
 #### 服务器 / 无头 (Headless) 环境
 在远程服务器部署时，请务必开启认证并配置正确的访问地址：
 ```bash
-rclone rcd --rc-files="path/to/dist" --rc-user=your_user --rc-pass=your_password --rc-addr=0.0.0.0:5572 --rc-allow-origin=http://your-server-ip:5572
+rclone rcd \
+  --rc-files="path/to/build" \
+  --rc-user=your_user \
+  --rc-pass=your_password \
+  --rc-addr=0.0.0.0:5572 \
+  --rc-allow-origin=http://your-server-ip:5572
 ```
 > [!TIP]
 > `--rc-allow-origin` 应当配置为浏览器实际访问该控制台的 URL（例如通过反向代理访问时的域名）。
+
+### 备选：利用 Rclone 内置 WebGUI 功能运行
+你也可以直接利用 Rclone 内部抓取功能来加载 WebGUI，省去手动下载步骤。
+
+**本地：**
+```bash
+rclone rcd \
+  --rc-web-gui \
+  --rc-web-fetch-url='https://api.github.com/repos/outlook84/yet-another-rclone-dashboard/releases/latest' \
+  --rc-no-auth \
+  --rc-addr=127.0.0.1:5572 \
+  --rc-allow-origin=http://127.0.0.1:5572
+```
+
+**远程：**
+```bash
+rclone rcd \
+  --rc-web-gui \
+  --rc-web-fetch-url='https://api.github.com/repos/outlook84/yet-another-rclone-dashboard/releases/latest' \
+  --rc-web-gui-no-open-browser \
+  --rc-user=your_user \
+  --rc-pass=your_password \
+  --rc-addr=0.0.0.0:5572 \
+  --rc-allow-origin=http://your-server-ip:5572
+```
+
+> [!NOTE]
+> 更多关于 `rclone rcd` 的参数说明，请参考 [rclone 官方文档](https://rclone.org/commands/rclone_rcd/)。
 
 ### 3. 访问
 在浏览器打开配置的地址即可开始使用。

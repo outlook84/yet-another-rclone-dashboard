@@ -61,16 +61,53 @@ Download the latest release and extract it.
 
 #### Desktop Environment (Local)
 ```bash
-rclone rcd --rc-files="path/to/dist" --rc-no-auth --rc-addr=127.0.0.1:5572 --rc-allow-origin=http://127.0.0.1:5572
+rclone rcd \
+  --rc-files="path/to/build" \
+  --rc-no-auth \
+  --rc-addr=127.0.0.1:5572 \
+  --rc-allow-origin=http://127.0.0.1:5572
 ```
 
 #### Headless / Server Environment
 When deploying on a remote server, ensure authentication is enabled and the origin is correctly configured:
 ```bash
-rclone rcd --rc-files="path/to/dist" --rc-user=your_user --rc-pass=your_password --rc-addr=0.0.0.0:5572 --rc-allow-origin=http://your-server-ip:5572
+rclone rcd \
+  --rc-files="path/to/build" \
+  --rc-user=your_user \
+  --rc-pass=your_password \
+  --rc-addr=0.0.0.0:5572 \
+  --rc-allow-origin=http://your-server-ip:5572
 ```
 > [!TIP]
 > Set `--rc-allow-origin` to the actual URL used to access the dashboard in your browser (e.g., your domain if using a reverse proxy).
+
+### Option: Use Rclone's Built-in WebGUI Fetcher
+You can also use Rclone's built-in fetcher to automatically download and run the latest dashboard.
+
+**Local:**
+```bash
+rclone rcd \
+  --rc-web-gui \
+  --rc-web-fetch-url='https://api.github.com/repos/outlook84/yet-another-rclone-dashboard/releases/latest' \
+  --rc-no-auth \
+  --rc-addr=127.0.0.1:5572 \
+  --rc-allow-origin=http://127.0.0.1:5572
+```
+
+**Remote:**
+```bash
+rclone rcd \
+  --rc-web-gui \
+  --rc-web-fetch-url='https://api.github.com/repos/outlook84/yet-another-rclone-dashboard/releases/latest' \
+  --rc-web-gui-no-open-browser \
+  --rc-user=your_user \
+  --rc-pass=your_password \
+  --rc-addr=0.0.0.0:5572 \
+  --rc-allow-origin=http://your-server-ip:5572
+```
+
+> [!NOTE]
+> For more information on `rclone rcd` flags and options, refer to the [official rclone documentation](https://rclone.org/commands/rclone_rcd/).
 
 ### 3. Open Browser
 Navigate to the configured address to start using the dashboard.
