@@ -6,6 +6,7 @@ import { ExplorerPage } from "@/features/explorer/pages/explorer-page"
 import { useSavedConnectionsStore } from "@/features/auth/store/saved-connections-store"
 import { useExplorerStore } from "@/features/explorer/store/explorer-store"
 import { useExplorerUIStore } from "@/features/explorer/store/explorer-ui-store"
+import { formatLocalizedCompactDateTime } from "@/shared/i18n/formatters"
 import { useConnectionStore } from "@/shared/store/connection-store"
 import { renderWithProviders } from "@/test/render-with-providers"
 
@@ -411,8 +412,8 @@ describe("ExplorerPage", () => {
   it("formats modified time for display", () => {
     renderWithProviders(<ExplorerPage />)
 
-    expect(screen.getByText("2026/03/22 08:00")).not.toBeNull()
-    expect(screen.getByText("2026/03/21 08:00")).not.toBeNull()
+    expect(screen.getByText(formatLocalizedCompactDateTime("2026-03-22T00:00:00Z", "en"))).not.toBeNull()
+    expect(screen.getByText(formatLocalizedCompactDateTime("2026-03-21T00:00:00Z", "en"))).not.toBeNull()
   })
 
   it("deletes mixed file and directory selections through the batch mutation", async () => {
