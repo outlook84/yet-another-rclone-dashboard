@@ -1,5 +1,5 @@
 import { Loader2, Save, Trash2 } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { useMutation } from "@tanstack/react-query"
 import { createRcloneRcAppApiClient } from "@/shared/api/client/app-api-client"
 import { PageShell } from "@/shared/components/page-shell"
@@ -37,15 +37,21 @@ function ConnectPage() {
   const deleteProfile = useSavedConnectionsStore((state) => state.deleteProfile)
   const notify = useNotify()
   const confirm = useConfirm()
-  const [syncEnabledDraft, setSyncEnabledDraft] = useState(false)
+  const [syncEnabledDraftState, setSyncEnabledDraftState] = useState<{
+    profileId: string | null
+    value: boolean
+  }>({
+    profileId: null,
+    value: false,
+  })
   const selectedProfile = useMemo(
     () => profiles.find((profile) => profile.id === selectedProfileId) ?? null,
     [profiles, selectedProfileId],
   )
-
-  useEffect(() => {
-    setSyncEnabledDraft(selectedProfile?.syncEnabled ?? false)
-  }, [selectedProfile?.id, selectedProfile?.syncEnabled])
+  const syncEnabledDraft =
+    syncEnabledDraftState.profileId === (selectedProfile?.id ?? null)
+      ? syncEnabledDraftState.value
+      : (selectedProfile?.syncEnabled ?? false)
 
   const validateConnection = useMutation({
     mutationFn: async (params?: { baseUrl: string; authMode: string; basicCredentials?: typeof basicCredentials }) => {
@@ -251,7 +257,10 @@ function ConnectPage() {
                       }
                     }
 
-                    setSyncEnabledDraft(nextChecked)
+                    setSyncEnabledDraftState({
+                      profileId: selectedProfile?.id ?? null,
+                      value: nextChecked,
+                    })
                   }}
                 />
                 <span className="flex min-w-0 flex-col gap-1">

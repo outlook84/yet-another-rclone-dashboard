@@ -1,6 +1,6 @@
 import { Loader2, RotateCcw } from "lucide-react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import type { RuntimeSettings } from "@/shared/api/contracts/settings"
 import { useAppApi } from "@/shared/api/client/api-context"
 import { useConnectionScope } from "@/shared/hooks/use-connection-scope"
@@ -16,6 +16,16 @@ import { useI18n } from "@/shared/i18n"
 import { formatInputExamples, inputExamples } from "@/shared/i18n/input-examples"
 import { toErrorMessage } from "@/shared/lib/error-utils"
 import { queryKeys } from "@/shared/lib/query-keys"
+
+type ScopedDraft = {
+  scope: string
+  value: RuntimeSettings
+}
+
+type SaveSettingsInput = {
+  scope: string
+  nextSettings: RuntimeSettings
+}
 
 function normalizeSettings(input: RuntimeSettings): RuntimeSettings {
   return {
@@ -54,7 +64,7 @@ function SettingsPage() {
   const connectionScope = useConnectionScope()
   const notify = useNotify()
   const queryClient = useQueryClient()
-  const [draft, setDraft] = useState<RuntimeSettings | null>(null)
+  const [draftState, setDraftState] = useState<ScopedDraft | null>(null)
   const logLevelOptions = [
     { value: "ERROR", label: messages.settings.error() },
     { value: "WARNING", label: messages.settings.warning() },
@@ -75,20 +85,19 @@ function SettingsPage() {
   const timeoutHint = formatInputExamples(inputExamples.timeout, locale, { quoted: true })
   const connectTimeoutHint = formatInputExamples(inputExamples.connectTimeout, locale, { quoted: true })
 
-  useEffect(() => {
-    if (settingsQuery.data) {
-      setDraft(settingsQuery.data)
-    }
-  }, [connectionScope, settingsQuery.data])
+  const scopedDraft = draftState?.scope === connectionScope ? draftState.value : null
+  const draft = scopedDraft ?? settingsQuery.data ?? null
 
   const saveMutation = useMutation({
-    mutationFn: async (nextSettings: RuntimeSettings) => {
+    mutationFn: async ({ nextSettings }: SaveSettingsInput) => {
       const baseline = settingsQuery.data
       const payload = baseline ? diffRuntimeSettings(baseline, nextSettings) : normalizeSettings(nextSettings)
       await api.settings.update(payload)
     },
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.settings(connectionScope) })
+    onSuccess: async (_, { scope, nextSettings }) => {
+      queryClient.setQueryData(queryKeys.settings(scope), normalizeSettings(nextSettings))
+      setDraftState((current) => (current?.scope === scope ? null : current))
+      await queryClient.invalidateQueries({ queryKey: queryKeys.settings(scope) })
       notify({
         color: "green",
         title: messages.settings.settingsSaved(),
@@ -105,14 +114,12 @@ function SettingsPage() {
   })
 
   const isDirty =
-    draft !== null &&
+    scopedDraft !== null &&
     settingsQuery.data !== undefined &&
     JSON.stringify(draft) !== JSON.stringify(settingsQuery.data)
 
   const resetDraft = () => {
-    if (settingsQuery.data) {
-      setDraft(settingsQuery.data)
-    }
+    setDraftState(null)
   }
 
   const actionButtons = (
@@ -129,7 +136,10 @@ function SettingsPage() {
         disabled={!draft || !isDirty}
         onClick={() => {
           if (draft) {
-            saveMutation.mutate(normalizeSettings(draft))
+            saveMutation.mutate({
+              scope: connectionScope,
+              nextSettings: normalizeSettings(draft),
+            })
           }
         }}
       >
@@ -170,7 +180,10 @@ function SettingsPage() {
                     value={draft?.logLevel ?? ""}
                     onChange={(event) => {
                       if (draft) {
-                        setDraft({ ...draft, logLevel: event.currentTarget.value })
+                        setDraftState({
+                          scope: connectionScope,
+                          value: { ...draft, logLevel: event.currentTarget.value },
+                        })
                       }
                     }}
                     disabled={!draft || saveMutation.isPending}
@@ -190,7 +203,10 @@ function SettingsPage() {
                       value={draft?.bandwidthLimit ?? ""}
                       onChange={(event) => {
                         if (draft) {
-                          setDraft({ ...draft, bandwidthLimit: event.currentTarget.value })
+                          setDraftState({
+                            scope: connectionScope,
+                            value: { ...draft, bandwidthLimit: event.currentTarget.value },
+                          })
                         }
                       }}
                       disabled={!draft || saveMutation.isPending}
@@ -199,7 +215,10 @@ function SettingsPage() {
                       value=""
                       onChange={(event) => {
                         if (draft && event.currentTarget.value) {
-                          setDraft({ ...draft, bandwidthLimit: event.currentTarget.value })
+                          setDraftState({
+                            scope: connectionScope,
+                            value: { ...draft, bandwidthLimit: event.currentTarget.value },
+                          })
                         }
                       }}
                       disabled={!draft || saveMutation.isPending}
@@ -231,9 +250,12 @@ function SettingsPage() {
                     value={draft?.transfers ?? ""}
                     onChange={(event) => {
                       if (draft) {
-                        setDraft({ ...draft, transfers: Number(event.currentTarget.value) })
+                        setDraftState({
+                          scope: connectionScope,
+                          value: { ...draft, transfers: Number(event.currentTarget.value) },
+                        })
                       }
-                      }}
+                    }}
                     disabled={!draft || saveMutation.isPending}
                   />
                   <span className="app-help-text">{messages.settings.transfersDescription()}</span>
@@ -247,9 +269,12 @@ function SettingsPage() {
                     value={draft?.checkers ?? ""}
                     onChange={(event) => {
                       if (draft) {
-                        setDraft({ ...draft, checkers: Number(event.currentTarget.value) })
+                        setDraftState({
+                          scope: connectionScope,
+                          value: { ...draft, checkers: Number(event.currentTarget.value) },
+                        })
                       }
-                      }}
+                    }}
                     disabled={!draft || saveMutation.isPending}
                   />
                   <span className="app-help-text">{messages.settings.checkersDescription()}</span>
@@ -263,9 +288,12 @@ function SettingsPage() {
                     value={draft?.retries ?? ""}
                     onChange={(event) => {
                       if (draft) {
-                        setDraft({ ...draft, retries: Number(event.currentTarget.value) })
+                        setDraftState({
+                          scope: connectionScope,
+                          value: { ...draft, retries: Number(event.currentTarget.value) },
+                        })
                       }
-                      }}
+                    }}
                     disabled={!draft || saveMutation.isPending}
                   />
                   <span className="app-help-text">{messages.settings.retriesDescription()}</span>
@@ -279,9 +307,12 @@ function SettingsPage() {
                     value={draft?.lowLevelRetries ?? ""}
                     onChange={(event) => {
                       if (draft) {
-                        setDraft({ ...draft, lowLevelRetries: Number(event.currentTarget.value) })
+                        setDraftState({
+                          scope: connectionScope,
+                          value: { ...draft, lowLevelRetries: Number(event.currentTarget.value) },
+                        })
                       }
-                      }}
+                    }}
                     disabled={!draft || saveMutation.isPending}
                   />
                   <span className="app-help-text">{messages.settings.lowLevelRetriesDescription()}</span>
@@ -293,9 +324,12 @@ function SettingsPage() {
                     value={draft?.timeout ?? ""}
                     onChange={(event) => {
                       if (draft) {
-                        setDraft({ ...draft, timeout: event.currentTarget.value })
+                        setDraftState({
+                          scope: connectionScope,
+                          value: { ...draft, timeout: event.currentTarget.value },
+                        })
                       }
-                      }}
+                    }}
                     disabled={!draft || saveMutation.isPending}
                   />
                   <span className="app-help-text">
@@ -309,9 +343,12 @@ function SettingsPage() {
                     value={draft?.connectTimeout ?? ""}
                     onChange={(event) => {
                       if (draft) {
-                        setDraft({ ...draft, connectTimeout: event.currentTarget.value })
+                        setDraftState({
+                          scope: connectionScope,
+                          value: { ...draft, connectTimeout: event.currentTarget.value },
+                        })
                       }
-                      }}
+                    }}
                     disabled={!draft || saveMutation.isPending}
                   />
                   <span className="app-help-text">

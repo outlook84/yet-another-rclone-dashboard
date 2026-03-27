@@ -1,4 +1,4 @@
-import { useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { cn } from "@/shared/lib/cn"
 import { useRemotesQuery } from "@/features/remotes/api/use-remotes-query"
 import { useSharedGlobalStatsQuery } from "@/features/jobs/api/use-global-stats-query"
@@ -21,6 +21,23 @@ import { RotateCcw } from "lucide-react"
 
 const THROUGHPUT_WINDOW_MS = 5 * 60 * 1000
 
+function useCurrentTime(refreshMs: number) {
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const intervalMs = Math.max(refreshMs > 0 ? refreshMs : 1000, 1000)
+    const timer = window.setInterval(() => {
+      setNow(Date.now())
+    }, intervalMs)
+
+    return () => {
+      window.clearInterval(timer)
+    }
+  }, [refreshMs])
+
+  return now
+}
+
 function formatElapsedLabel(seconds: number, locale: "en" | "zh-CN") {
   if (seconds < 60) {
     return locale === "zh-CN" ? `${seconds}秒` : `${seconds}s`
@@ -41,17 +58,18 @@ function formatElapsedLabel(seconds: number, locale: "en" | "zh-CN") {
 function ThroughputChart({
   samples,
   refreshMs,
+  now,
   locale,
   agoLabel,
   nowLabel,
 }: {
   samples: ThroughputSample[]
   refreshMs: number
+  now: number
   locale: "en" | "zh-CN"
   agoLabel: string
   nowLabel: string
 }) {
-  const now = Date.now()
   const windowStart = now - THROUGHPUT_WINDOW_MS
   const visibleSamples = samples
     .filter((sample) => sample.at >= windowStart && sample.at <= now)
@@ -187,6 +205,7 @@ function OverviewPage() {
   const globalStats = statsQuery.data?.globalStats
   const activeTransfers = overviewStats?.transferring?.length ?? 0
   const currentThroughput = activeTransfers > 0 ? getCurrentThroughput(overviewStats) : 0
+  const chartNow = useCurrentTime(statsRefreshMs)
 
   const confirm = useConfirm()
   const resetMutation = useStatsResetMutation()
@@ -256,6 +275,7 @@ function OverviewPage() {
               <ThroughputChart
                 samples={speedHistory}
                 refreshMs={statsRefreshMs}
+                now={chartNow}
                 locale={locale}
                 agoLabel={messages.overview.ago()}
                 nowLabel={messages.overview.now()}

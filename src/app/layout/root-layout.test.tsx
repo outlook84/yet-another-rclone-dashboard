@@ -2,7 +2,11 @@
 
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { MemoryRouter, Route, Routes } from "react-router-dom"
+import {
+  MemoryRouter,
+  Route,
+  Routes,
+} from "react-router-dom"
 import { RootLayout } from "@/app/layout/root-layout"
 import { AppProviders } from "@/app/providers/app-providers"
 import { useConnectionStore } from "@/shared/store/connection-store"
@@ -16,7 +20,7 @@ vi.mock("@/shared/hooks/use-connection-health-query", () => ({
   }),
 }))
 
-function renderRootLayout(initialEntries: string[]) {
+function renderRootLayout(initialEntries: Array<string | { pathname: string; state?: unknown }>) {
   return render(
     <AppProviders>
       <MemoryRouter initialEntries={initialEntries}>
@@ -72,6 +76,14 @@ describe("RootLayout", () => {
     renderRootLayout(["/overview"])
 
     fireEvent.click(screen.getByRole("link", { name: "Connect RC link" }))
+
+    await waitFor(() => {
+      expect(screen.getByText("Connect Screen")).not.toBeNull()
+    })
+  })
+
+  it("does not auto-redirect away when connect is revisited with manual connect state", async () => {
+    renderRootLayout([{ pathname: "/", state: { manualConnect: true } }])
 
     await waitFor(() => {
       expect(screen.getByText("Connect Screen")).not.toBeNull()

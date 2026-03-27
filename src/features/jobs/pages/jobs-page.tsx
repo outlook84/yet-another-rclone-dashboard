@@ -28,12 +28,7 @@ type ExpandableTextProps = {
 
 function ExpandableText({ value, compact, collapsedClassName, expandedClassName }: ExpandableTextProps) {
   const [expanded, setExpanded] = useState(false)
-
-  useEffect(() => {
-    if (!compact) {
-      setExpanded(false)
-    }
-  }, [compact])
+  const isExpanded = compact && expanded
 
   if (!compact) {
     return (
@@ -48,7 +43,7 @@ function ExpandableText({ value, compact, collapsedClassName, expandedClassName 
       role="button"
       tabIndex={0}
       title={value}
-      className={`${expanded ? expandedClassName : collapsedClassName} select-text cursor-pointer`}
+      className={`${isExpanded ? expandedClassName : collapsedClassName} select-text cursor-pointer`}
       onClick={() => setExpanded((current) => !current)}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {

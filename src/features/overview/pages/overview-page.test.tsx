@@ -12,6 +12,7 @@ const sharedGlobalStatsQueryMock = vi.fn()
 const connectionHealthQueryMock = vi.fn()
 const statsResetMutationMock = vi.fn()
 const confirmMock = vi.fn()
+const fixedNow = new Date("2026-03-27T08:00:00.000Z").getTime()
 
 vi.mock("@/features/remotes/api/use-remotes-query", () => ({
   useRemotesQuery: () => remotesQueryMock(),
@@ -42,10 +43,13 @@ vi.mock("@/shared/components/confirm-provider", async () => {
 describe("OverviewPage", () => {
   afterEach(() => {
     cleanup()
+    vi.useRealTimers()
     vi.restoreAllMocks()
   })
 
   beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(fixedNow)
     confirmMock.mockResolvedValue(false)
 
     useConnectionStore.setState({
@@ -67,10 +71,10 @@ describe("OverviewPage", () => {
       scopeKey: "http://localhost:5572::basic::gui",
       historyByScope: {
         "http://localhost:5572::basic::gui": [
-          { at: Date.now() - 1000, value: 0 },
+          { at: fixedNow - 1000, value: 0 },
         ],
       },
-      speedHistory: [{ at: Date.now() - 1000, value: 0 }],
+      speedHistory: [{ at: fixedNow - 1000, value: 0 }],
       memStats: { HeapAlloc: 58 * 1024 * 1024 } as never,
     })
 
@@ -91,6 +95,7 @@ describe("OverviewPage", () => {
         },
         globalStats: {},
       },
+      dataUpdatedAt: fixedNow,
       error: null,
     })
 
@@ -143,5 +148,38 @@ describe("OverviewPage", () => {
       }),
     ).not.toBeNull()
     expect(screen.getByText("core/stats(group=global_stats).lastError")).not.toBeNull()
+  })
+
+  it("does not keep rendering throughput samples older than the 5 minute window", () => {
+    const staleSampleAt = fixedNow - 6 * 60 * 1000
+
+    useOverviewStore.setState({
+      scopeKey: "http://localhost:5572::basic::gui",
+      historyByScope: {
+        "http://localhost:5572::basic::gui": [{ at: staleSampleAt, value: 1024 }],
+      },
+      speedHistory: [{ at: staleSampleAt, value: 1024 }],
+      memStats: { HeapAlloc: 58 * 1024 * 1024 } as never,
+    })
+
+    sharedGlobalStatsQueryMock.mockReturnValue({
+      data: {
+        stats: {
+          elapsedTime: 120,
+          transfers: 25,
+          bytes: 18 * 1024 * 1024 * 1024,
+          errors: 8,
+          deletes: 24,
+          transferring: [],
+        },
+        globalStats: {},
+      },
+      dataUpdatedAt: staleSampleAt,
+      error: null,
+    })
+
+    const { container } = renderWithProviders(<OverviewPage />)
+
+    expect(container.querySelector('path[stroke="var(--app-accent)"]')).toBeNull()
   })
 })

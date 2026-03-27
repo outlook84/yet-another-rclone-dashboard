@@ -84,7 +84,6 @@ function RootLayout() {
   const lastHandledErrorAtRef = useRef(0)
   const lastHandledSuccessAtRef = useRef(0)
   const hasPrefetchedRoutesRef = useRef(false)
-  const lastAutoRestoredScopeRef = useRef<string | null>(null)
   const wasStatsRefreshingRef = useRef(false)
   const statsRefreshHoldUntilRef = useRef(0)
   const appVersion = packageJson.version
@@ -164,12 +163,6 @@ function RootLayout() {
   }, [isValidated])
 
   useEffect(() => {
-    if (!isValidated) {
-      lastAutoRestoredScopeRef.current = null
-    }
-  }, [isValidated])
-
-  useEffect(() => {
     if (!isValidated || location.pathname === "/") {
       return
     }
@@ -240,9 +233,8 @@ function RootLayout() {
     isValidated &&
     location.pathname === "/" &&
     navigationType === "POP" &&
-    lastAutoRestoredScopeRef.current !== connectionScope
+    location.state?.manualConnect !== true
   ) {
-    lastAutoRestoredScopeRef.current = connectionScope
     return <Navigate to={getLastVisitedRoute(connectionScope)} replace />
   }
 
@@ -256,6 +248,7 @@ function RootLayout() {
           <Link
             key={item.to}
             to={item.to}
+            state={item.to === "/" ? { manualConnect: true } : undefined}
             onClick={() => setOpened(false)}
             onMouseEnter={() => preloadRoute(item.to)}
             onFocus={() => preloadRoute(item.to)}
