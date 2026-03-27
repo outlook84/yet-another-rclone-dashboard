@@ -6,25 +6,29 @@
 
 
 
-<div align="center">
-  <table>
-    <tr>
-      <td valign="top"><img src="docs/screenshots/connect_cn.png"/><br/>建立连接 (Connect)</td>
-      <td valign="top"><img src="docs/screenshots/overview_cn.png"/><br/>统计概览 (Overview)</td>
-    </tr>
-    <tr>
-      <td valign="top"><img src="docs/screenshots/remotes_cn.png"/><br/>存储列表 (Remotes)</td>
-      <td valign="top"><img src="docs/screenshots/explorer_cn.png"/><br/>文件浏览 (Explorer)</td>
-    </tr>
-    <tr>
-      <td valign="top"><img src="docs/screenshots/transfers_cn.png"/><br/>任务状态 (Transfers)</td>
-      <td valign="top"><img src="docs/screenshots/settings_cn.png"/><br/>设置 (Settings)</td>
-    </tr>
-    <tr>
-      <td valign="top" colspan="2" align="center"><img src="docs/screenshots/mobile_cn.png" width="300"/><br/>移动端适配 (Mobile Friendly)</td>
-    </tr>
-  </table>
-</div>
+<p align="center">
+  <img src="docs/screenshots/overview_cn.png" width="600" />
+</p>
+
+<details>
+  <summary>点击查看更多截图</summary>
+  <div align="center">
+    <table>
+      <tr>
+        <td valign="top"><img src="docs/screenshots/connect_cn.png"/><br/>连接 (Connect)</td>
+        <td valign="top"><img src="docs/screenshots/remotes_cn.png"/><br/>存储列表 (Remotes)</td>
+      </tr>
+      <tr>
+        <td valign="top"><img src="docs/screenshots/explorer_cn.png"/><br/>文件浏览 (Explorer)</td>
+        <td valign="top"><img src="docs/screenshots/transfers_cn.png"/><br/>任务状态 (Transfers)</td>
+      </tr>
+      <tr>
+        <td valign="top"><img src="docs/screenshots/settings_cn.png"/><br/>设置 (Settings)</td>
+        <td valign="top"><img src="docs/screenshots/mobile_cn.png" width="220"/><br/>移动端 (Mobile)</td>
+      </tr>
+    </table>
+  </div>
+</details>
 
 ## 功能概览
 

@@ -6,25 +6,29 @@ Modern Web Dashboard for `rclone rcd` (Rclone v1.72.0 or later recommended).
 
 
 
-<div align="center">
-  <table>
-    <tr>
-      <td valign="top"><img src="docs/screenshots/connect.png"/><br/>Connect</td>
-      <td valign="top"><img src="docs/screenshots/overview.png"/><br/>Overview</td>
-    </tr>
-    <tr>
-      <td valign="top"><img src="docs/screenshots/remotes.png"/><br/>Remotes</td>
-      <td valign="top"><img src="docs/screenshots/explorer.png"/><br/>Explorer</td>
-    </tr>
-    <tr>
-      <td valign="top"><img src="docs/screenshots/transfers.png"/><br/>Transfers</td>
-      <td valign="top"><img src="docs/screenshots/settings.png"/><br/>Settings</td>
-    </tr>
-    <tr>
-      <td valign="top" colspan="2" align="center"><img src="docs/screenshots/mobile.png" width="300"/><br/>Mobile Friendly</td>
-    </tr>
-  </table>
-</div>
+<p align="center">
+  <img src="docs/screenshots/overview.png" width="600" />
+</p>
+
+<details>
+  <summary>Click to view more screenshots</summary>
+  <div align="center">
+    <table>
+      <tr>
+        <td valign="top"><img src="docs/screenshots/connect.png"/><br/>Connect</td>
+        <td valign="top"><img src="docs/screenshots/remotes.png"/><br/>Remotes</td>
+      </tr>
+      <tr>
+        <td valign="top"><img src="docs/screenshots/explorer.png"/><br/>Explorer</td>
+        <td valign="top"><img src="docs/screenshots/transfers.png"/><br/>Transfers</td>
+      </tr>
+      <tr>
+        <td valign="top"><img src="docs/screenshots/settings.png"/><br/>Settings</td>
+        <td valign="top"><img src="docs/screenshots/mobile.png" width="220"/><br/>Mobile</td>
+      </tr>
+    </table>
+  </div>
+</details>
 
 ## Features
 
