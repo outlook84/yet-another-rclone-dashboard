@@ -5,10 +5,18 @@ on:
     branches:
       - "main"
       - "development"
+    paths-ignore:
+      - "README.md"
+      - "README.zh-CN.md"
+      - ".github/pull_request_template.md"
   pull_request:
     branches:
       - "main"
       - "development"
+    paths-ignore:
+      - "README.md"
+      - "README.zh-CN.md"
+      - ".github/pull_request_template.md"
 
 permissions:
   contents: read
