@@ -100,13 +100,13 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Package dist
+      - name: Package build-compatible archive
         env:
           ASSET_NAME: ${{ steps.meta.outputs.asset_name }}
         run: |
           python - <<'PY'
           import os
-          from pathlib import Path
+          from pathlib import Path, PurePosixPath
           from zipfile import ZIP_DEFLATED, ZipFile
 
           dist_dir = Path("dist")
@@ -115,7 +115,7 @@ jobs:
           with ZipFile(asset_path, "w", compression=ZIP_DEFLATED) as archive:
               for file in dist_dir.rglob("*"):
                   if file.is_file():
-                      archive.write(file, file.relative_to(dist_dir.parent))
+                      archive.write(file, PurePosixPath("build") / file.relative_to(dist_dir))
           PY
 
       - name: Create or update GitHub release
