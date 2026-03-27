@@ -73,3 +73,7 @@ rclone rcd --rc-files="path/to/dist" --rc-user=your_user --rc-pass=your_password
 
 ### 3. Open Browser
 Navigate to the configured address to start using the dashboard.
+
+## Credits
+
+Favicon artwork is derived from Noto Emoji. See [LICENSES/Noto-Emoji-LICENSE.txt](./LICENSES/Noto-Emoji-LICENSE.txt) for the bundled license text.

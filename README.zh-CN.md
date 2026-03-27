@@ -73,3 +73,7 @@ rclone rcd --rc-files="path/to/dist" --rc-user=your_user --rc-pass=your_password
 
 ### 3. 访问
 在浏览器打开配置的地址即可开始使用。
+
+## 鸣谢
+
+Favicon 图标基于 Noto Emoji 资源制作。随仓库附带的授权文本见 [LICENSES/Noto-Emoji-LICENSE.txt](./LICENSES/Noto-Emoji-LICENSE.txt)。
