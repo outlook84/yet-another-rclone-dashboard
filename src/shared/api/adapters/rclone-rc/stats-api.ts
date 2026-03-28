@@ -53,10 +53,10 @@ class RcloneRcStatsApi implements Pick<JobApi, "getStats" | "getTransferred" | "
         path: "job/batch",
         body: {
           inputs: [
-            { _path: "core/stats", body: group ? { group } : {} },
-            { _path: "core/memstats", body: {} },
-            { _path: "core/transferred", body: group ? { group } : {} },
-            { _path: "core/stats", body: { group: "global_stats" } },
+            { _path: "core/stats", ...(group ? { group } : {}) },
+            { _path: "core/memstats" },
+            { _path: "core/transferred", ...(group ? { group } : {}) },
+            { _path: "core/stats", group: "global_stats" },
           ],
         },
       })

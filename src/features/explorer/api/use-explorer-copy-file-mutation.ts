@@ -37,10 +37,10 @@ function useExplorerCopyFileMutation() {
       return api.jobs.batch(
         input.items.map((item) => ({
           _path: "operations/copyfile",
-          srcRemote: input.srcRemote,
-          srcPath: item.srcPath,
-          dstRemote: input.dstRemote,
-          dstPath: item.dstPath,
+          srcFs: `${input.srcRemote}:`,
+          srcRemote: item.srcPath,
+          dstFs: `${input.dstRemote}:`,
+          dstRemote: item.dstPath,
         }))
       )
     },

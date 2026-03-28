@@ -18,7 +18,7 @@ function useExplorerCleanupMutation() {
       api.explorer.cleanup({ remote, path: "" }),
     onSuccess: async (_data, variables) => {
       await queryClient.invalidateQueries({
-        queryKey: [...queryKeys.explorer(connectionScope, variables.remote, ""), "fs-info"],
+        queryKey: [...queryKeys.explorer(connectionScope, variables.remote, ""), "fsinfo"],
       })
       await queryClient.invalidateQueries({
         queryKey: [...queryKeys.explorer(connectionScope, variables.remote, ""), "usage"],

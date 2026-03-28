@@ -29,8 +29,8 @@ function useExplorerDeleteFileMutation() {
       await api.jobs.batch(
         targetPaths.map((path) => ({
           _path: "operations/deletefile",
-          remote,
-          path,
+          fs: `${remote}:`,
+          remote: path,
         }))
       )
     },

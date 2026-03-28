@@ -79,7 +79,9 @@ class RcloneRcExplorerApi implements ExplorerApi {
 
     return {
       features: (response.features ?? response.Features) as Record<string, unknown> | undefined,
-      hashes: Array.isArray(response.hashes) ? (response.hashes as string[]) : undefined,
+      hashes: Array.isArray(response.hashes ?? response.Hashes)
+        ? ((response.hashes ?? response.Hashes) as string[])
+        : undefined,
     }
   }
 

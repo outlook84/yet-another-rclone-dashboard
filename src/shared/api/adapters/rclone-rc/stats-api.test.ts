@@ -11,6 +11,43 @@ function createTransport(
 }
 
 describe("RcloneRcStatsApi", () => {
+  it("sends flattened upstream job/batch inputs for combined stats", async () => {
+    const transport = createTransport(async (input) => {
+      if (input.path === "job/batch") {
+        expect(input.body).toEqual({
+          inputs: [
+            { _path: "core/stats", group: "demo" },
+            { _path: "core/memstats" },
+            { _path: "core/transferred", group: "demo" },
+            { _path: "core/stats", group: "global_stats" },
+          ],
+        })
+
+        return {
+          results: [
+            { speed: 10, bytes: 20 },
+            { HeapAlloc: 1234 },
+            { transferred: [{ name: "demo.txt", started_at: "2026-03-28T10:00:00Z" }] },
+            { errors: 2, lastError: "global boom" },
+          ],
+        }
+      }
+
+      throw new Error(`unexpected path: ${input.path}`)
+    })
+
+    const api = new RcloneRcStatsApi(transport)
+    const result = await api.getCombinedStats("demo")
+
+    expect(result.stats).toMatchObject({ speed: 10, bytes: 20 })
+    expect(result.mem).toMatchObject({ HeapAlloc: 1234 })
+    expect(result.transferred[0]).toMatchObject({
+      name: "demo.txt",
+      startedAt: "2026-03-28T10:00:00Z",
+    })
+    expect(result.globalStats).toMatchObject({ errors: 2, lastError: "global boom" })
+  })
+
   it("falls back when job/batch is unsupported and still returns global stats", async () => {
     const transport = createTransport(async (input) => {
       if (input.path === "job/batch") {

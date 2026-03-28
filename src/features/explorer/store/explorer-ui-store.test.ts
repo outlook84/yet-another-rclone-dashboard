@@ -1,0 +1,92 @@
+import { beforeEach, describe, expect, it } from "vitest"
+import { useExplorerUIStore } from "@/features/explorer/store/explorer-ui-store"
+
+describe("useExplorerUIStore", () => {
+  beforeEach(() => {
+    useExplorerUIStore.setState({
+      scopeKey: null,
+      actionsByScope: {},
+      inspectDirectoryPaths: {},
+      selectionModes: {},
+      selectedPathsByTab: {},
+    })
+  })
+
+  it("keeps pending actions isolated by scope", () => {
+    useExplorerUIStore.getState().setScope("scope-a")
+    useExplorerUIStore.getState().setPendingTransferAction({
+      mode: "copy",
+      sourceRemote: "remote-a:",
+      sourcePath: "folder-a",
+      items: [
+        {
+          itemType: "file",
+          itemName: "demo.txt",
+          srcPath: "folder-a/demo.txt",
+        },
+      ],
+    })
+
+    useExplorerUIStore.getState().setScope("scope-b")
+    useExplorerUIStore.getState().setPendingRenameAction({
+      item: {
+        itemType: "dir",
+        itemName: "photos",
+        srcPath: "photos",
+      },
+      nextName: "archive",
+    })
+
+    expect(useExplorerUIStore.getState().actionsByScope["scope-b"]).toMatchObject({
+      pendingTransferAction: null,
+      pendingRenameAction: {
+        nextName: "archive",
+      },
+    })
+
+    useExplorerUIStore.getState().setScope("scope-a")
+
+    expect(useExplorerUIStore.getState().actionsByScope["scope-a"]).toMatchObject({
+      pendingTransferAction: {
+        mode: "copy",
+        sourceRemote: "remote-a:",
+      },
+      pendingRenameAction: null,
+    })
+  })
+
+  it("supports updater functions for scoped actions and shared ui maps", () => {
+    useExplorerUIStore.getState().setScope("scope-a")
+    useExplorerUIStore.getState().setPendingTransferAction({
+      mode: "copy",
+      sourceRemote: "remote-a:",
+      sourcePath: "folder-a",
+      items: [],
+    })
+    useExplorerUIStore.getState().setPendingTransferAction((prev) =>
+      prev
+        ? {
+            ...prev,
+            mode: "move",
+          }
+        : prev,
+    )
+
+    useExplorerUIStore.getState().setInspectDirectoryPaths(() => ({ "tab-1": "/tmp" }))
+    useExplorerUIStore.getState().setSelectionModes((prev) => ({ ...prev, "tab-1": true }))
+    useExplorerUIStore.getState().setSelectedPathsByTab((prev) => ({
+      ...prev,
+      "tab-1": ["a.txt", "b.txt"],
+    }))
+
+    expect(useExplorerUIStore.getState().actionsByScope["scope-a"]?.pendingTransferAction).toMatchObject({
+      mode: "move",
+      sourcePath: "folder-a",
+    })
+    expect(useExplorerUIStore.getState().inspectDirectoryPaths).toEqual({ "tab-1": "/tmp" })
+    expect(useExplorerUIStore.getState().selectionModes).toEqual({ "tab-1": true })
+    expect(useExplorerUIStore.getState().selectedPathsByTab).toEqual({
+      "tab-1": ["a.txt", "b.txt"],
+    })
+  })
+})
