@@ -104,6 +104,7 @@ export interface JobApi {
   list(): Promise<JobListResult>
   get(jobId: number | string): Promise<RuntimeJob>
   stop(jobId: number | string): Promise<void>
+  stopGroup(group: string): Promise<void>
   getStats(group?: string): Promise<TransferStats>
   getTransferred(group?: string): Promise<PastTransferItem[]>
   resetStats(group?: string): Promise<void>

@@ -10,6 +10,7 @@ import { queryKeys } from "@/shared/lib/query-keys"
 const apiMock = {
   jobs: {
     stop: vi.fn(),
+    stopGroup: vi.fn(),
   },
 }
 
@@ -30,9 +31,10 @@ function createWrapper(queryClient: QueryClient) {
 describe("useStopJobMutation", () => {
   beforeEach(() => {
     apiMock.jobs.stop.mockReset()
+    apiMock.jobs.stopGroup.mockReset()
   })
 
-  it("stops a job and invalidates job and stats queries", async () => {
+  it("stops a direct job id and invalidates job and stats queries", async () => {
     apiMock.jobs.stop.mockResolvedValue(undefined)
     const queryClient = new QueryClient({
       defaultOptions: {
@@ -51,11 +53,33 @@ describe("useStopJobMutation", () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
     expect(apiMock.jobs.stop).toHaveBeenCalledWith("job-1")
+    expect(apiMock.jobs.stopGroup).not.toHaveBeenCalled()
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: queryKeys.jobs("scope://demo"),
     })
     expect(invalidateSpy).toHaveBeenCalledWith({
       queryKey: queryKeys.stats("scope://demo"),
     })
+  })
+
+  it("stops a job group when the target uses the job/<id> group format", async () => {
+    apiMock.jobs.stopGroup.mockResolvedValue(undefined)
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+        mutations: { retry: false },
+      },
+    })
+
+    const { result } = renderHook(() => useStopJobMutation(), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    result.current.mutate("job/42")
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(apiMock.jobs.stopGroup).toHaveBeenCalledWith("job/42")
+    expect(apiMock.jobs.stop).not.toHaveBeenCalled()
   })
 })

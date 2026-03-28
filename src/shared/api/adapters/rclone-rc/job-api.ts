@@ -34,12 +34,10 @@ class RcloneRcJobApi extends RcloneRcStatsApi implements JobApi {
     return {
       running: runningIds.slice(0, MAX_RUNNING_JOBS).map((id) => ({
         id,
-        group: `job/${id}`,
         status: "running" as const,
       })),
       finished: finishedIds.slice(0, MAX_FINISHED_JOBS).map((id) => ({
         id,
-        group: `job/${id}`,
         status: "unknown" as const,
       })),
       totalRunning: runningIds.length,
@@ -64,6 +62,14 @@ class RcloneRcJobApi extends RcloneRcStatsApi implements JobApi {
       method: "POST",
       path: "job/stop",
       body: { jobid: jobId },
+    })
+  }
+
+  async stopGroup(group: string): Promise<void> {
+    await this.jobTransport.request({
+      method: "POST",
+      path: "job/stopgroup",
+      body: { group },
     })
   }
 }

@@ -71,7 +71,7 @@ function JobsPage() {
     {
       key: string
       label?: string
-      jobId?: string
+      stopTarget?: string
       items: typeof transferring
     }
   >()
@@ -79,7 +79,7 @@ function JobsPage() {
   transferring.forEach((item, index) => {
     const key = item.group || item.name || `transfer-${index}`
     const existing = grouped.get(key)
-    const jobId = item.group?.startsWith("job/") ? item.group.slice(4) : undefined
+    const stopTarget = item.group?.startsWith("job/") ? item.group : undefined
 
     if (existing) {
       existing.items.push(item)
@@ -89,7 +89,7 @@ function JobsPage() {
     grouped.set(key, {
       key,
       label: item.group?.startsWith("job/") ? undefined : (item.group || undefined),
-      jobId,
+      stopTarget,
       items: [item],
     })
   })
@@ -162,7 +162,8 @@ function JobsPage() {
           {activeTransfersExpanded ? transferGroups.length ? (
             <div className="flex flex-col gap-4">
               {transferGroups.map((group) => {
-                const jobId = group.jobId
+                const stopTarget = group.stopTarget
+                const stopLabel = stopTarget ?? group.label
                 const groupDisplay = buildGroupDisplayModel(group.items)
 
                 return (
@@ -173,10 +174,10 @@ function JobsPage() {
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-[color:var(--app-text-soft)]">
                               <div
-                                title={jobId ? `job/${jobId}` : group.label ?? messages.jobs.transfer()}
+                                title={stopLabel ?? messages.jobs.transfer()}
                                 className="font-bold text-[color:var(--app-text)]"
                               >
-                                {jobId ? `job/${jobId}` : group.label ?? messages.jobs.transfer()}
+                                {stopLabel ?? messages.jobs.transfer()}
                               </div>
                               {messages.jobs.transferringFiles(group.items.length)}
                             </div>
@@ -197,24 +198,24 @@ function JobsPage() {
                               />
                             ) : null}
                           </div>
-                          {jobId ? (
+                          {stopTarget ? (
                             <Button
                               size="xs"
                               variant="danger"
-                              disabled={stopJobMutation.isPending && String(stopJobMutation.variables) === jobId}
+                              disabled={stopJobMutation.isPending && String(stopJobMutation.variables) === stopTarget}
                               onClick={async () => {
                                 const confirmed = await confirm({
                                   title: messages.jobs.stopJob(),
-                                  message: messages.jobs.stopJobMessage(jobId),
+                                  message: messages.jobs.stopJobMessage(stopTarget),
                                   confirmLabel: messages.jobs.stopJob(),
                                 })
                                 if (!confirmed) {
                                   return
                                 }
-                                await stopJobMutation.mutateAsync(jobId)
+                                await stopJobMutation.mutateAsync(stopTarget)
                               }}
                             >
-                              {stopJobMutation.isPending && String(stopJobMutation.variables) === jobId ? (
+                              {stopJobMutation.isPending && String(stopJobMutation.variables) === stopTarget ? (
                                 <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                               ) : null}
                               {messages.jobs.stop()}

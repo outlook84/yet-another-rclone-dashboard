@@ -89,12 +89,12 @@ describe("JobsPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Stop" }))
     const dialog = await screen.findByRole("dialog")
 
-    expect(within(dialog).getByText('Stop running job "42"?')).not.toBeNull()
+    expect(within(dialog).getByText('Stop running job "job/42"?')).not.toBeNull()
 
     fireEvent.click(within(dialog).getByRole("button", { name: "Stop Job" }))
 
     await waitFor(() => {
-      expect(mutateAsync).toHaveBeenCalledWith("42")
+      expect(mutateAsync).toHaveBeenCalledWith("job/42")
     })
   })
 

@@ -31,6 +31,8 @@ describe("RcloneRcJobApi", () => {
     expect(result.finished).toHaveLength(100)
     expect(result.running[0]).toMatchObject({ id: 55, status: "running" })
     expect(result.finished[0]).toMatchObject({ id: 304, status: "unknown" })
+    expect(result.running[0]).not.toHaveProperty("group")
+    expect(result.finished[0]).not.toHaveProperty("group")
     expect(result).toMatchObject({
       totalRunning: 55,
       totalFinished: 105,
@@ -55,12 +57,12 @@ describe("RcloneRcJobApi", () => {
 
     await expect(api.list()).resolves.toEqual({
       running: [
-        { id: 4, group: "job/4", status: "running" },
-        { id: 2, group: "job/2", status: "running" },
+        { id: 4, status: "running" },
+        { id: 2, status: "running" },
       ],
       finished: [
-        { id: 3, group: "job/3", status: "unknown" },
-        { id: 1, group: "job/1", status: "unknown" },
+        { id: 3, status: "unknown" },
+        { id: 1, status: "unknown" },
       ],
       totalRunning: 2,
       totalFinished: 2,
@@ -69,7 +71,7 @@ describe("RcloneRcJobApi", () => {
     })
   })
 
-  it("gets and stops a job using the expected endpoints", async () => {
+  it("gets a job and stops jobs by id or group using the expected endpoints", async () => {
     const transport = createTransport(async (input) => {
       if (input.path === "job/status") {
         expect(input.body).toEqual({ jobid: "job-7" })
@@ -82,6 +84,11 @@ describe("RcloneRcJobApi", () => {
 
       if (input.path === "job/stop") {
         expect(input.body).toEqual({ jobid: "job-7" })
+        return {}
+      }
+
+      if (input.path === "job/stopgroup") {
+        expect(input.body).toEqual({ group: "job/42" })
         return {}
       }
 
@@ -102,5 +109,6 @@ describe("RcloneRcJobApi", () => {
     })
 
     await expect(api.stop("job-7")).resolves.toBeUndefined()
+    await expect(api.stopGroup("job/42")).resolves.toBeUndefined()
   })
 })

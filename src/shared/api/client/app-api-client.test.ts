@@ -51,6 +51,7 @@ describe("createAppApiClient", () => {
         list: vi.fn(),
         get: vi.fn(),
         stop: vi.fn(),
+        stopGroup: vi.fn(),
         getStats: vi.fn(),
         getTransferred: vi.fn(),
         resetStats: vi.fn(),

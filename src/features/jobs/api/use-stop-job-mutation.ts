@@ -9,8 +9,13 @@ function useStopJobMutation() {
   const connectionScope = useConnectionScope()
 
   return useMutation({
-    mutationFn: async (jobId: number | string) => {
-      await api.jobs.stop(jobId)
+    mutationFn: async (jobTarget: number | string) => {
+      if (typeof jobTarget === "string" && jobTarget.startsWith("job/")) {
+        await api.jobs.stopGroup(jobTarget)
+        return
+      }
+
+      await api.jobs.stop(jobTarget)
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({
