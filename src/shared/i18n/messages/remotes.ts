@@ -1,4 +1,13 @@
+import { createElement, Fragment, type ReactNode } from "react"
 import type { AppMessages, MessageSet } from "@/shared/i18n/messages/types"
+
+function withInlineNode(before: string, node: ReactNode, after: string) {
+  return [
+    createElement(Fragment, { key: "before" }, before),
+    createElement(Fragment, { key: "node" }, node),
+    createElement(Fragment, { key: "after" }, after),
+  ]
+}
 
 const remotesMessages: MessageSet<AppMessages["remotes"]> = {
   en: {
@@ -39,12 +48,21 @@ const remotesMessages: MessageSet<AppMessages["remotes"]> = {
     other: () => "Other",
     objects: () => "Objects",
     backendUsageUnavailable: () => "This backend does not expose usage and trash metrics.",
-    configJson: () => "Config JSON",
+    configJson: () => "Remote JSON",
+    configJsonHint: () => "Edit the current remote here. To rename or duplicate it, copy the JSON, change the top-level remote name, then import it as a new remote.",
+    copyDumpEntryJson: () => "Copy JSON",
+    dumpEntryCopied: () => "Dump Entry Copied",
+    dumpEntryCopiedMessage: (name) => `Copied the config dump entry for ${name}.`,
     remoteUpdated: () => "Remote Updated",
     remoteUpdatedMessage: (name) => `${name} was updated successfully.`,
     updateRemote: () => "Update Remote",
     importJsonTitle: () => "Import JSON",
-    importJsonDescription: (code) => ["Paste the full ", code, " JSON. Existing remotes will be skipped and only new ones will be appended."],
+    importJsonDescription: (code) =>
+      withInlineNode(
+        "Paste a single remote JSON entry or a full ",
+        code,
+        " JSON dump. Only already-complete remotes can be imported here, and interactive OAuth setup is still out of scope. Existing remotes will be skipped and only new ones will be appended.",
+      ),
     remoteJson: () => "Remote JSON",
     jsonRemotes: () => "JSON Remotes",
     importable: () => "Importable",
@@ -52,7 +70,6 @@ const remotesMessages: MessageSet<AppMessages["remotes"]> = {
     invalid: () => "Invalid",
     skippingExisting: (names, hasMore) => `Skipping existing: ${names}${hasMore ? "..." : ""}`,
     invalidEntries: (names, hasMore) => `Invalid entries: ${names}${hasMore ? "..." : ""}`,
-    importScopeNote: (code) => ["This draft only supports direct ", code, " imports for already-complete remote configs. Interactive OAuth flows are still out of scope."],
     remotesImported: () => "Remotes Imported",
     remotesImportedMessage: (count) => `Imported ${count} new remote${count === 1 ? "" : "s"} from JSON config.`,
     importMissingRemotes: () => "Import Missing Remotes",
@@ -61,7 +78,8 @@ const remotesMessages: MessageSet<AppMessages["remotes"]> = {
     importFailed: () => "Import Failed",
     deleteRemoteFailed: () => "Delete Remote Failed",
     updateRemoteFailed: () => "Update Remote Failed",
-    remoteJsonMustBeObject: () => "Remote JSON must be a single config object.",
+    remoteJsonMustBeDumpEntry: () => "Remote JSON must be a single config dump entry keyed by one remote name.",
+    remoteJsonNameMismatch: () => "Top-level remote name changed. Use Import JSON to create a renamed or duplicated remote.",
     importJsonMustBeDumpObject: () => "Import JSON must be a full config dump object keyed by remote name.",
     invalidJson: () => "Invalid JSON.",
   },
@@ -103,12 +121,21 @@ const remotesMessages: MessageSet<AppMessages["remotes"]> = {
     other: () => "其他",
     objects: () => "对象数",
     backendUsageUnavailable: () => "该后端不提供用量和回收区指标。",
-    configJson: () => "配置 JSON",
+    configJson: () => "存储 JSON",
+    configJsonHint: () => "可在这里直接编辑当前存储。若要重命名或复制，请先复制这段 JSON，修改顶层存储名后再导入为新存储。",
+    copyDumpEntryJson: () => "复制 JSON",
+    dumpEntryCopied: () => "导出片段已复制",
+    dumpEntryCopiedMessage: (name) => `已复制 ${name} 的配置导出片段。`,
     remoteUpdated: () => "存储已更新",
     remoteUpdatedMessage: (name) => `${name} 更新成功。`,
     updateRemote: () => "更新存储",
     importJsonTitle: () => "导入 JSON",
-    importJsonDescription: (code) => ["粘贴完整的 ", code, " JSON。已有存储会被跳过，只会追加新的存储。"],
+    importJsonDescription: (code) =>
+      withInlineNode(
+        "粘贴单个存储的 JSON 片段，或完整的 ",
+        code,
+        " JSON 导出。这里只支持导入已经完整配置好的存储，交互式 OAuth 配置仍不在范围内。已有存储会被跳过，只会追加新的存储。",
+      ),
     remoteJson: () => "存储 JSON",
     jsonRemotes: () => "JSON 存储数",
     importable: () => "可导入",
@@ -116,7 +143,6 @@ const remotesMessages: MessageSet<AppMessages["remotes"]> = {
     invalid: () => "无效",
     skippingExisting: (names, hasMore) => `跳过已存在项：${names}${hasMore ? "..." : ""}`,
     invalidEntries: (names, hasMore) => `无效条目：${names}${hasMore ? "..." : ""}`,
-    importScopeNote: (code) => ["当前仅支持直接导入已经完整的存储配置到 ", code, "。交互式 OAuth 流程仍不在范围内。"],
     remotesImported: () => "存储已导入",
     remotesImportedMessage: (count) => `已从 JSON 配置导入 ${count} 个新存储。`,
     importMissingRemotes: () => "导入缺失存储",
@@ -125,7 +151,8 @@ const remotesMessages: MessageSet<AppMessages["remotes"]> = {
     importFailed: () => "导入失败",
     deleteRemoteFailed: () => "删除存储失败",
     updateRemoteFailed: () => "更新存储失败",
-    remoteJsonMustBeObject: () => "存储 JSON 必须是单个配置对象。",
+    remoteJsonMustBeDumpEntry: () => "存储 JSON 必须是只包含一个存储名键的配置导出片段对象。",
+    remoteJsonNameMismatch: () => "顶层存储名已变更。若要重命名或复制，请使用导入 JSON。",
     importJsonMustBeDumpObject: () => "导入 JSON 必须是按存储名为键的完整配置导出对象。",
     invalidJson: () => "JSON 无效。",
   },

@@ -85,7 +85,11 @@ function RemotesPage() {
   const parsedRemoteConfigDraft = useMemo(() => {
     const draft = remoteConfigDraft.trim()
     if (!draft) {
-      return { config: null, error: null as string | null }
+      return {
+        config: null as Record<string, unknown> | null,
+        entryName: null as string | null,
+        error: null as string | null,
+      }
     }
 
     try {
@@ -93,17 +97,38 @@ function RemotesPage() {
       if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") {
         return {
           config: null,
-          error: messages.remotes.remoteJsonMustBeObject(),
+          entryName: null,
+          error: messages.remotes.remoteJsonMustBeDumpEntry(),
+        }
+      }
+
+      const entries = Object.entries(parsed as Record<string, unknown>)
+      if (entries.length !== 1) {
+        return {
+          config: null,
+          entryName: null,
+          error: messages.remotes.remoteJsonMustBeDumpEntry(),
+        }
+      }
+
+      const [entryName, value] = entries[0]
+      if (!value || Array.isArray(value) || typeof value !== "object") {
+        return {
+          config: null,
+          entryName: null,
+          error: messages.remotes.remoteJsonMustBeDumpEntry(),
         }
       }
 
       return {
-        config: parsed as Record<string, unknown>,
+        config: value as Record<string, unknown>,
+        entryName,
         error: null,
       }
     } catch (error) {
       return {
         config: null,
+        entryName: null,
         error: error instanceof Error ? error.message : messages.remotes.invalidJson(),
       }
     }
@@ -188,7 +213,8 @@ function RemotesPage() {
   const canSaveRemoteConfig =
     Boolean(selectedRemote) &&
     Boolean(parsedRemoteConfigDraft.config) &&
-    !parsedRemoteConfigDraft.error
+    !parsedRemoteConfigDraft.error &&
+    parsedRemoteConfigDraft.entryName === selectedRemote
 
   const downloadJson = (filename: string, data: Record<string, unknown>) => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
@@ -209,7 +235,15 @@ function RemotesPage() {
     }
 
     if (remoteDetailQuery.data) {
-      setRemoteConfigDraft(JSON.stringify(remoteDetailQuery.data.config, null, 2))
+      setRemoteConfigDraft(
+        JSON.stringify(
+          {
+            [remoteDetailQuery.data.name]: remoteDetailQuery.data.config,
+          },
+          null,
+          2,
+        ),
+      )
     }
   }, [remoteDetailQuery.data, selectedRemote])
 
@@ -392,6 +426,7 @@ function RemotesPage() {
           ) : null}
 
           <label className="text-[13px] font-bold text-[color:var(--app-text)]">{messages.remotes.configJson()}</label>
+          <p className="text-[12px] text-[color:var(--app-text-soft)]">{messages.remotes.configJsonHint()}</p>
           <Textarea
             className="min-h-[260px] font-mono text-sm"
             value={remoteConfigDraft}
@@ -400,7 +435,27 @@ function RemotesPage() {
           {parsedRemoteConfigDraft.error ? (
             <p className="app-danger-text text-sm">{parsedRemoteConfigDraft.error}</p>
           ) : null}
-          <div className="flex justify-end">
+          {!parsedRemoteConfigDraft.error &&
+          parsedRemoteConfigDraft.entryName &&
+          parsedRemoteConfigDraft.entryName !== remoteDetailQuery.data.name ? (
+            <p className="text-sm text-[color:var(--app-text-soft)]">{messages.remotes.remoteJsonNameMismatch()}</p>
+          ) : null}
+          <div className="flex items-center justify-between gap-3">
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={!remoteConfigDraft.trim()}
+              onClick={async () => {
+                await navigator.clipboard.writeText(remoteConfigDraft)
+                notify({
+                  color: "green",
+                  title: messages.remotes.dumpEntryCopied(),
+                  message: messages.remotes.dumpEntryCopiedMessage(remoteDetailQuery.data.name),
+                })
+              }}
+            >
+              {messages.remotes.copyDumpEntryJson()}
+            </Button>
             <Button
               size="sm"
               variant="secondary"
@@ -415,7 +470,15 @@ function RemotesPage() {
                   config: parsedRemoteConfigDraft.config,
                 })
 
-                setRemoteConfigDraft(JSON.stringify(remote.config, null, 2))
+                setRemoteConfigDraft(
+                  JSON.stringify(
+                    {
+                      [remote.name]: remote.config,
+                    },
+                    null,
+                    2,
+                  ),
+                )
                 notify({
                   color: "green",
                   title: messages.remotes.remoteUpdated(),
@@ -588,7 +651,7 @@ function RemotesPage() {
                   </SheetHeader>
 
                   <div className="flex min-h-0 flex-col gap-3 pb-10">
-                    <label className="text-[13px] font-normal text-[color:var(--app-text-soft)]">{messages.remotes.remoteJson()}</label>
+                    <label className="text-sm font-normal text-[color:var(--app-text-soft)]">{messages.remotes.remoteJson()}</label>
                     <Textarea
                       className="min-h-[240px] font-mono"
                       placeholder={resolveInputExample(inputExamples.remoteConfigDump, locale)}
@@ -607,7 +670,7 @@ function RemotesPage() {
                     ) : null}
 
                     {importPlan.skippedExisting.length > 0 ? (
-                      <p className="text-[12px] text-[color:var(--app-text-soft)]">
+                      <p className="text-sm text-[color:var(--app-text-soft)]">
                         {messages.remotes.skippingExisting(
                           importPlan.skippedExisting.slice(0, 6).join(", "),
                           importPlan.skippedExisting.length > 6,
@@ -615,17 +678,13 @@ function RemotesPage() {
                       </p>
                     ) : null}
                     {importPlan.invalidEntries.length > 0 ? (
-                      <p className="text-[12px] text-[color:var(--app-text-soft)]">
+                      <p className="text-sm text-[color:var(--app-text-soft)]">
                         {messages.remotes.invalidEntries(
                           importPlan.invalidEntries.slice(0, 6).join(", "),
                           importPlan.invalidEntries.length > 6,
                         )}
                       </p>
                     ) : null}
-
-                    <p className="text-[12px] text-[color:var(--app-text-soft)]">
-                      {messages.remotes.importScopeNote(<InlineCode>config/create</InlineCode>)}
-                    </p>
 
                     <div className="app-sticky-footer sticky bottom-0 mt-auto flex justify-end pt-3">
                       <Button

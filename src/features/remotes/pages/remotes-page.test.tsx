@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, screen } from "@testing-library/react"
+import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react"
 import { MemoryRouter } from "react-router-dom"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { RemotesPage } from "@/features/remotes/pages/remotes-page"
@@ -87,6 +87,12 @@ describe("RemotesPage", () => {
         get: vi.fn(),
       },
     })
+
+    Object.assign(navigator, {
+      clipboard: {
+        writeText: vi.fn().mockResolvedValue(undefined),
+      },
+    })
   })
 
   it("writes selected remote into explorer store when browsing", () => {
@@ -112,6 +118,7 @@ describe("RemotesPage", () => {
               name: "demo",
               backend: "s3",
               config: {
+                type: "s3",
                 provider: "MinIO",
               },
             }
@@ -143,7 +150,109 @@ describe("RemotesPage", () => {
 
     expect(screen.getAllByText("demo").length).toBeGreaterThan(0)
     expect(screen.getByText("s3")).not.toBeNull()
-    expect(screen.getByText("Config JSON")).not.toBeNull()
+    expect(screen.getByText("Remote JSON")).not.toBeNull()
+    expect(screen.getByText(/"demo": \{/)).not.toBeNull()
     expect(screen.getByText(/"provider": "MinIO"/)).not.toBeNull()
+  })
+
+  it("disables updating when the dump entry name is changed", async () => {
+    const demoRemoteDetail = {
+      name: "demo",
+      backend: "s3",
+      config: {
+        type: "s3",
+        provider: "MinIO",
+      },
+    }
+
+    remoteDetailQueryMock.mockImplementation((name: string | null) => ({
+      isLoading: false,
+      error: null,
+      data: name === "demo" ? demoRemoteDetail : null,
+    }))
+
+    renderWithProviders(
+      <MemoryRouter>
+        <RemotesPage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Inspect" }))
+
+    const editor = screen.getByDisplayValue(/"demo": \{/)
+    fireEvent.change(editor, {
+      target: {
+        value: JSON.stringify(
+          {
+            renamed: {
+              provider: "MinIO",
+            },
+          },
+          null,
+          2,
+        ),
+      },
+    })
+
+    await waitFor(() => {
+      expect((screen.getByRole("button", { name: "Update Remote" }) as HTMLButtonElement).disabled).toBe(true)
+    })
+  })
+
+  it("accepts renamed dump entry JSON in import flow", async () => {
+    const demoRemoteDetail = {
+      name: "demo",
+      backend: "s3",
+      config: {
+        type: "s3",
+        provider: "MinIO",
+      },
+    }
+
+    remoteDetailQueryMock.mockImplementation((name: string | null) => ({
+      isLoading: false,
+      error: null,
+      data: name === "demo" ? demoRemoteDetail : null,
+    }))
+
+    renderWithProviders(
+      <MemoryRouter>
+        <RemotesPage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Inspect" }))
+
+    const renamedDumpEntry = JSON.stringify(
+      {
+        renamed: {
+          type: "s3",
+          provider: "MinIO",
+        },
+      },
+      null,
+      2,
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Import Config JSON" }))
+
+    await waitFor(() => {
+      expect(screen.getByText("Import JSON")).not.toBeNull()
+    })
+
+    const editors = screen.getAllByRole("textbox")
+    const importEditor = editors[editors.length - 1]
+
+    fireEvent.change(importEditor, {
+      target: {
+        value: renamedDumpEntry,
+      },
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText("Importable: 1")).not.toBeNull()
+    })
+
+    expect((screen.getByRole("button", { name: "Import Missing Remotes" }) as HTMLButtonElement).disabled).toBe(false)
   })
 })
