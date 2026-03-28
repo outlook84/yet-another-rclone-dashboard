@@ -1,4 +1,4 @@
-import { IconArrowUp, IconChevronDown, IconColumns, IconCopy, IconDotsVertical, IconFile, IconFolderFilled, IconHome, IconPencil, IconRefresh } from "@tabler/icons-react"
+import { IconArrowUp, IconChevronDown, IconColumns, IconCopy, IconDotsVertical, IconFile, IconFolderFilled, IconHome, IconPencil, IconPlus, IconRefresh, IconX } from "@tabler/icons-react"
 import { Loader2 } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useVirtualizer } from "@tanstack/react-virtual"
@@ -750,7 +750,7 @@ function ExplorerPage() {
                         onMouseLeave={() => setHoveredTabId((current) => (current === tab.id ? null : current))}
                         onClick={() => activateTab(tab.id)}
                         className={cn(
-                          "flex w-max max-w-[20%] cursor-pointer items-center justify-between gap-2 rounded-[10px] border px-3 py-2 transition-colors",
+                          "flex h-8 w-max max-w-[20%] cursor-pointer items-center justify-between gap-2 rounded-[10px] border px-3 transition-colors",
                           active
                             ? "border-[color:var(--app-interactive-selected-border)] bg-[color:var(--app-interactive-selected-bg)] text-[color:var(--app-interactive-selected-text)]"
                             : "border-transparent bg-transparent hover:border-[color:var(--app-border)] hover:bg-[color:var(--app-hover-surface-strong)]",
@@ -762,14 +762,14 @@ function ExplorerPage() {
                         {active || hoveredTabId === tab.id ? (
                           <button
                             type="button"
-                            className="inline-flex h-6 w-6 items-center justify-center rounded-[8px] text-[color:var(--app-text-soft)] transition-colors hover:bg-[color:var(--app-hover-surface)] hover:text-[color:var(--app-text)]"
+                            className="inline-flex h-5 w-5 items-center justify-center rounded-[7px] text-[color:var(--app-text-soft)] transition-colors hover:bg-[color:var(--app-hover-surface)] hover:text-[color:var(--app-text)]"
                             aria-label={messages.explorer.closeTab()}
                             onClick={(event) => {
                               event.stopPropagation()
                               closeTab(tab.id)
                             }}
                           >
-                            ×
+                            <IconX size={13} stroke={2} />
                           </button>
                         ) : null}
                       </div>
@@ -777,12 +777,12 @@ function ExplorerPage() {
                   })}
                   <UIButton
                     variant="secondary"
-                    size="icon"
+                    size="icon-sm"
                     aria-label={messages.explorer.newTab()}
                     onClick={() => addTab({ remote: currentRemote, path: currentPath })}
                     className="shrink-0"
                   >
-                    +
+                    <IconPlus size={13} stroke={2} />
                   </UIButton>
                   {usageSummaryLabel ? (
                     <div className="shrink-0 self-center whitespace-nowrap px-1 text-[13px] font-bold text-[color:var(--app-text-soft)]">
@@ -791,9 +791,9 @@ function ExplorerPage() {
                   ) : null}
                 </div>
               ) : null}
-              <div className="app-toolbar-card p-1.5">
-                <div className={cn("gap-1.5", compactToolbar ? "flex flex-col" : "flex items-stretch")}>
-                  <div style={{ flex: 1, minWidth: 0 }} className={cn(compactToolbar ? "w-full" : "")}>
+              <div className={cn("gap-1.5", compactToolbar ? "flex flex-col" : "flex items-center")}>
+                <div style={{ flex: 1, minWidth: 0 }} className={cn(compactToolbar ? "w-full" : "")}>
+                  <div className="app-toolbar-card px-1.5 py-1">
                     {isPathEditing ? (
                       <Input
                         value={locationDraft}
@@ -814,52 +814,52 @@ function ExplorerPage() {
                     ) : (
                       <div
                         title={fullPathLabel}
-                      className="flex min-h-[40px] w-full items-center gap-1.5 overflow-hidden rounded-[10px] px-2 py-1.5"
+                        className="flex h-8 w-full items-center gap-1.5 overflow-hidden rounded-[10px] px-2"
                       >
-                      {remoteOptions.length > 0 ? (
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              type="button"
-                              className="inline-flex shrink-0 items-center gap-1 text-[13px] font-bold text-[color:var(--app-accent-strong)] transition-colors hover:text-[color:var(--app-accent)]"
-                              title={messages.explorer.chooseRemote()}
-                            >
-                              <span>{currentRemote ? `${currentRemote}:` : messages.explorer.chooseRemote()}</span>
-                              <IconChevronDown size={14} stroke={1.8} />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start" className="w-[220px]">
-                            {remoteOptions.map((option) => (
-                              <DropdownMenuItem
-                                key={option.value}
-                                onClick={() => {
-                                  setCurrentRemote(option.value)
-                                  setCurrentPath("")
-                                }}
+                        {remoteOptions.length > 0 ? (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <button
+                                type="button"
+                                className="inline-flex shrink-0 items-center gap-1 text-[13px] font-bold text-[color:var(--app-accent-strong)] transition-colors hover:text-[color:var(--app-accent)]"
+                                title={messages.explorer.chooseRemote()}
                               >
-                                {option.label}
-                              </DropdownMenuItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      ) : (
-                        <span className="shrink-0 text-[13px] font-bold text-[color:var(--app-text-soft)]">{messages.explorer.noRemotes()}</span>
-                      )}
-                      {pathNodes ? (
-                        <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
-                          {pathNodes}
-                        </div>
-                      ) : null}
-                    </div>
-                  )}
+                                <span>{currentRemote ? `${currentRemote}:` : messages.explorer.chooseRemote()}</span>
+                                <IconChevronDown size={14} stroke={1.8} />
+                              </button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="w-[220px]">
+                              {remoteOptions.map((option) => (
+                                <DropdownMenuItem
+                                  key={option.value}
+                                  onClick={() => {
+                                    setCurrentRemote(option.value)
+                                    setCurrentPath("")
+                                  }}
+                                >
+                                  {option.label}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        ) : (
+                          <span className="shrink-0 text-[13px] font-bold text-[color:var(--app-text-soft)]">{messages.explorer.noRemotes()}</span>
+                        )}
+                        {pathNodes ? (
+                          <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
+                            {pathNodes}
+                          </div>
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
                 </div>
                   {!compactToolbar ? (
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1">
                       {locationActionButtons}
                     </div>
                   ) : null}
                 </div>
-              </div>
               <div className="app-toolbar-row">
                 {compactToolbar ? (
                   <div className="app-toolbar-actions gap-1.5">
@@ -1384,7 +1384,7 @@ function ExplorerPage() {
             <div className="flex flex-col gap-3">
               <TableShell className="p-0 app-explorer-table">
                 {/* Sticky table header */}
-                <div className="overflow-x-auto overflow-y-auto" style={{ scrollbarGutter: "stable" }}>
+                <div className="overflow-x-auto overflow-y-auto bg-[color:var(--app-table-head-bg)]" style={{ scrollbarGutter: "stable" }}>
                   <Table style={{ tableLayout: "fixed", width: "100%" }}>
                     <thead>
                       <TableHeadRow>
@@ -1434,19 +1434,19 @@ function ExplorerPage() {
                            className="py-1 text-[0.8rem]"
                            style={{ width: "2rem", padding: 0, paddingRight: 4 }}
                          >
-                           <UIButton
-                             variant="ghost"
-                             size="icon"
-                             title={showMetaCols ? messages.explorer.hideDetails() : messages.explorer.showDetails()}
-                             onClick={() => setShowMetaCols((v) => !v)}
-                             className={`h-7 w-7 rounded-md p-0 transition-colors ${
-                               showMetaCols
-                                 ? "text-[color:var(--app-accent-strong)]"
-                                 : "text-[color:var(--app-text-soft)]"
-                             }`}
-                           >
-                             <IconColumns size={14} stroke={1.6} />
-                           </UIButton>
+                            <UIButton
+                              variant="ghost"
+                              size="icon"
+                              title={showMetaCols ? messages.explorer.hideDetails() : messages.explorer.showDetails()}
+                              onClick={() => setShowMetaCols((v) => !v)}
+                              className={`h-7 w-7 rounded-[7px] border border-[color:var(--app-border)] bg-[color:var(--app-panel-strong)] p-0 transition-colors hover:border-[color:var(--app-interactive-selected-border)] hover:bg-[color:var(--app-hover-surface)] ${
+                                showMetaCols
+                                  ? "text-[color:var(--app-accent-strong)]"
+                                  : "text-[color:var(--app-text-soft)]"
+                              }`}
+                            >
+                              <IconColumns size={14} stroke={1.6} />
+                            </UIButton>
                          </TableHead>
                        </TableHeadRow>
                     </thead>
