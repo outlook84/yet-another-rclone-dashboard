@@ -1,6 +1,6 @@
 # Yet Another Rclone Dashboard
 
-[中文说明](./README.zh-CN.md)
+[中文说明](./docs/README.zh-CN.md)
 
 Modern Web Dashboard for `rclone rcd` (Rclone v1.72.0 or later recommended).
 
@@ -45,7 +45,8 @@ Modern Web Dashboard for `rclone rcd` (Rclone v1.72.0 or later recommended).
 
 ## Deliberate Non-Goals & Not Planned
 
-- **Local File Operations & Media Streaming**: Uploading, downloading, or previewing files. The current `rclone rc` interface is not optimized for streaming large files through WebUI interface.
+- **Media Streaming & Preview**: The current `rclone rc` interface is not optimized for streaming large files through a Web-based interface.
+- **Local File Upload/Download**: The Web interface is not designed for direct large-scale uploads or downloads between a local client and a remote server. For Rclone instances running locally, you can add `alias` or `local` remote to facilitate transfers between local and remote storage.
 - **Auth-derived Public Links**: For security reasons, this project does not support generating public or download links by deriving them from RC Basic Auth credentials.
 - **Mount Management**: Mounting or unmounting remotes. These operations typically require specific OS permissions and complex lifecycle management (e.g., handling hangs or abnormal exits) in the environment where Rclone is physically running, making them unsuitable for reliable remote WebUI control.
 - **Remote Configuration & Auth**: Performing complex interactive configurations (`config/create`, `config/update`) or OAuth flows. OAuth authentication is often problematic in headless environments and not suitable for remote WebUI completion.
@@ -73,6 +74,7 @@ When deploying on a remote server, ensure authentication is enabled and the orig
 ```bash
 rclone rcd \
   --rc-files="path/to/build" \
+  --rc-web-gui-no-open-browser \
   --rc-user=your_user \
   --rc-pass=your_password \
   --rc-addr=0.0.0.0:5572 \
@@ -108,6 +110,35 @@ rclone rcd \
 
 > [!NOTE]
 > For more information on `rclone rcd` flags and options, refer to the [official rclone documentation](https://rclone.org/commands/rclone_rcd/).
+
+### Option: Deploy with Nginx or Caddy
+
+Since this is a static Web application, you can serve it using any standard web server.
+
+**Nginx:**
+```nginx
+server {
+    listen 80;
+    server_name dashboard.example.com;
+
+    location / {
+        root /path/to/extracted/build;
+        index index.html;
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+**Caddy:**
+```caddy
+dashboard.example.com {
+    root * /path/to/extracted/build
+    file_server
+}
+```
+
+> [!IMPORTANT]
+> When using a custom web server, ensure that your Rclone instance is running with the correct `--rc-allow-origin` matching your dashboard's URL.
 
 ### 3. Open Browser
 Navigate to the configured address to start using the dashboard.

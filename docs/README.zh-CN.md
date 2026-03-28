@@ -1,34 +1,34 @@
 # Yet Another Rclone Dashboard
 
-[English README](./README.md)
+[English README](../README.md)
 
 面向 `rclone rcd` 的现代 Web 面板（推荐配合 Rclone v1.72.0 及以上版本使用）。
 
 
 
 <p align="center">
-  <img src="docs/screenshots/overview_cn.png" />
+  <img src="screenshots/overview_cn.png" />
 </p>
 
 <details>
   <summary>点击查看更多截图</summary>
   <p><strong>连接 (Connect)</strong></p>
-  <img src="docs/screenshots/connect_cn.png" />
+  <img src="screenshots/connect_cn.png" />
 
   <p><strong>存储列表 (Remotes)</strong></p>
-  <img src="docs/screenshots/remotes_cn.png" />
+  <img src="screenshots/remotes_cn.png" />
 
   <p><strong>文件浏览 (Explorer)</strong></p>
-  <img src="docs/screenshots/explorer_cn.png" />
+  <img src="screenshots/explorer_cn.png" />
 
   <p><strong>任务状态 (Transfers)</strong></p>
-  <img src="docs/screenshots/transfers_cn.png" />
+  <img src="screenshots/transfers_cn.png" />
 
   <p><strong>设置 (Settings)</strong></p>
-  <img src="docs/screenshots/settings_cn.png" />
+  <img src="screenshots/settings_cn.png" />
 
   <p><strong>移动端 (Mobile)</strong></p>
-  <img src="docs/screenshots/mobile_cn.png" />
+  <img src="screenshots/mobile_cn.png" />
 </details>
 
 ## 功能概览
@@ -45,7 +45,8 @@
 
 ## 非开发目标与限制
 
-- **本地文件操作与媒体流**：上传、下载、预览文件。目前的 `rclone rc` 接口设计并不能很好地支持通过 Web 界面进行大规模的文件流传输。
+- **预览与媒体流**：目前的 `rclone rc` 接口设计并不能很好地支持通过 Web 界面进行大规模的文件流传输。
+- **本地文件上传/下载**：Web 界面不适合直接执行本地与远程服务器间的大规模上传/下载。若 Rclone 运行在本地，可以通过添加 `alias` 或 `local` 类型的 Remote 来管理本地文件，从而实现与其他存储间的传输。
 - **基于认证推导的公开链接**：出于安全考虑，不提供生成基于 RC Basic Auth 凭据的下载或公开链接。
 - **挂载管理 (Mount/Unmount)**：在 WebUI 中远程执行挂载操作。挂载往往需要在 Rclone 运行的实际宿主环境中处理复杂的权限问题、异常退出后的清理等，不适合通过远程 Web 界面进行操作。
 - **远程配置与认证**：通过复杂的交互式表单或 OAuth 流程执行 `config/create` 等远程配置操作。OAuth 流程在无头 (headless) 环境下不适合通过 Web 界面远程完成。
@@ -73,6 +74,7 @@ rclone rcd \
 ```bash
 rclone rcd \
   --rc-files="path/to/build" \
+  --rc-web-gui-no-open-browser \
   --rc-user=your_user \
   --rc-pass=your_password \
   --rc-addr=0.0.0.0:5572 \
@@ -109,9 +111,38 @@ rclone rcd \
 > [!NOTE]
 > 更多关于 `rclone rcd` 的参数说明，请参考 [rclone 官方文档](https://rclone.org/commands/rclone_rcd/)。
 
+### 备选：使用 Nginx 或 Caddy 部署
+
+本项目是纯静态 Web 应用，你可以使用任何标准 Web 服务器进行托管。
+
+**Nginx:**
+```nginx
+server {
+    listen 80;
+    server_name dashboard.example.com;
+
+    location / {
+        root /path/to/extracted/build;
+        index index.html;
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+**Caddy:**
+```caddy
+dashboard.example.com {
+    root * /path/to/extracted/build
+    file_server
+}
+```
+
+> [!IMPORTANT]
+> 使用自定义 Web 服务器时，请确保 Rclone 实例运行时设置了正确的 `--rc-allow-origin`，使其匹配你访问面板的 URL。
+
 ### 3. 访问
 在浏览器打开配置的地址即可开始使用。
 
 ## 鸣谢
 
-Favicon 图标基于 Noto Emoji 资源制作。随仓库附带的授权文本见 [LICENSES/Noto-Emoji-LICENSE.txt](./LICENSES/Noto-Emoji-LICENSE.txt)。
+Favicon 图标基于 Noto Emoji 资源制作。随仓库附带的授权文本见 [LICENSES/Noto-Emoji-LICENSE.txt](../LICENSES/Noto-Emoji-LICENSE.txt)。
