@@ -40,8 +40,8 @@ Modern Web Dashboard for `rclone rcd` (Rclone v1.72.0 or later recommended).
 - inspect Rclone system information and status summary
 - inspect remotes and import/export rclone configuration
 - browse directories, filter, sort, and create folders
-- basic media preview (requires Rclone RC API not using Basic Auth); playback compatibility depends on your browser's decoding capabilities
-- download files directly through Web interface (requires Rclone RC API not using Basic Auth)
+- basic media preview (requires `--rc-serve` and Rclone RC API not using Basic Auth); playback compatibility depends on your browser's decoding capabilities
+- download files directly through Web interface (requires `--rc-serve` and Rclone RC API not using Basic Auth)
 - upload files from local through Web interface (subject to CDN/Reverse Proxy body size or timeout limits)
 - copy, sync, move, and delete files or directories
 - show public links only when the backend reports native `PublicLink` support

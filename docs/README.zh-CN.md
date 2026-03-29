@@ -40,8 +40,8 @@
 - 查看 Rclone 基本信息与统计摘要
 - 查看 remotes 以及导入/导出 rclone 配置
 - 浏览目录、筛选、排序、创建目录
-- 基础的媒体预览功能（前提为 Rclone RC API 未启用 Basic Auth 认证），播放能力取决于浏览器的解码支持
-- 通过 Web 界面下载文件（前提为 Rclone RC API 未启用 Basic Auth 认证）
+- 基础的媒体预览功能（前提为开启 `--rc-serve` 且 Rclone RC API 未启用 Basic Auth 认证），播放能力取决于浏览器的解码支持
+- 通过 Web 界面下载文件（前提为开启 `--rc-serve` 且 Rclone RC API 未启用 Basic Auth 认证）
 - 从本地通过 Web 界面上传文件（受 CDN/反向代理等网络环境的请求体大小或超时限制）
 - 复制、同步、移动、删除文件或目录
 - 在后端原生支持 `PublicLink` 时显示分享链接
