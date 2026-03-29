@@ -50,6 +50,7 @@ function RemotesPage() {
   const navigate = useNavigate()
   const connectionScope = useConnectionScope()
   const remotesQuery = useRemotesQuery()
+  const setExplorerScope = useExplorerStore((state) => state.setScope)
   const setLocation = useExplorerStore((state) => state.setLocation)
   const baseUrl = useConnectionStore((state) => state.baseUrl)
   const [selectedRemote, setSelectedRemote] = useState<string | null>(null)
@@ -617,6 +618,7 @@ function RemotesPage() {
                                 <Button
                                   size="sm"
                                   onClick={() => {
+                                    setExplorerScope(connectionScope)
                                     setLocation(remote.name, "")
                                     navigate("/explorer")
                                   }}

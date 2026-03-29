@@ -108,6 +108,31 @@ describe("RemotesPage", () => {
     expect(useExplorerStore.getState().currentPath).toBe("")
   })
 
+  it("initializes explorer scope before browsing on first visit", () => {
+    useExplorerStore.setState({
+      scopeKey: null,
+      sessionsByScope: {},
+      tabs: [],
+      activeTabId: "",
+      currentRemote: "",
+      currentPath: "",
+    })
+
+    renderWithProviders(
+      <MemoryRouter>
+        <RemotesPage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Browse" }))
+
+    const state = useExplorerStore.getState()
+    expect(state.scopeKey).toBeTruthy()
+    expect(state.currentRemote).toBe("demo")
+    expect(state.currentPath).toBe("")
+    expect(state.scopeKey ? state.sessionsByScope[state.scopeKey]?.currentRemote : "").toBe("demo")
+  })
+
   it("renders remote detail after inspect is selected", () => {
     remoteDetailQueryMock.mockImplementation((name: string | null) => ({
       isLoading: false,
