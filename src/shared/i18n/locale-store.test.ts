@@ -31,7 +31,8 @@ describe("locale-store", () => {
 
     localeStore.useLocaleStore.getState().setLocale("en")
 
-    expect(window.localStorage.getItem(localeStore.LOCALE_STORAGE_KEY)).toBe("en")
+    expect(window.localStorage.length).toBe(1)
+    expect(window.localStorage.getItem(window.localStorage.key(0)!)).toBe("en")
     expect(document.documentElement.lang).toBe("en")
     expect(localeStore.useLocaleStore.getState().locale).toBe("en")
   })

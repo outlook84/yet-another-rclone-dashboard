@@ -331,6 +331,7 @@ describe("RootLayout", () => {
 
   it("preserves leading and trailing spaces in media preview download names", () => {
     seedMediaPreview(" report.txt ")
+    const anchorClickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {})
 
     const originalCreateElement = document.createElement.bind(document)
     let createdAnchor: HTMLAnchorElement | null = null
@@ -354,6 +355,7 @@ describe("RootLayout", () => {
       throw new Error("download anchor was not created")
     }
 
+    expect(anchorClickSpy).toHaveBeenCalled()
     expect((createdAnchor as HTMLAnchorElement).getAttribute("download")).toBe(" report.txt ")
   })
 

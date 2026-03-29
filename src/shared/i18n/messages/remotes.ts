@@ -13,7 +13,6 @@ const remotesMessages: MessageSet<AppMessages["remotes"]> = {
   en: {
     title: () => "Remotes",
     remoteList: () => "Remote List",
-    remoteListDescription: () => "Browse remotes quickly, then inspect one when you need config-level actions.",
     remoteDetail: () => "Remote Detail",
     loadingRemotes: () => "Loading remotes...",
     loadingDetail: () => "Loading detail...",
@@ -86,7 +85,6 @@ const remotesMessages: MessageSet<AppMessages["remotes"]> = {
   "zh-CN": {
     title: () => "存储",
     remoteList: () => "配置管理",
-    remoteListDescription: () => "",
     remoteDetail: () => "存储详情",
     loadingRemotes: () => "存储加载中...",
     loadingDetail: () => "详情加载中...",

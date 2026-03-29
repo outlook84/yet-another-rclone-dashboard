@@ -11,7 +11,7 @@ interface LocaleState {
 }
 
 function isSupportedLocale(value: string | null): value is AppLocale {
-  return value === "en" || value === "zh-CN"
+  return supportedLocales.some((locale) => locale === value)
 }
 
 function normalizeLocale(value?: string | null): AppLocale {
@@ -65,4 +65,4 @@ function initializeLocaleDocument() {
   applyLocale(initialLocale)
 }
 
-export { initializeLocaleDocument, LOCALE_STORAGE_KEY, supportedLocales, type AppLocale, useLocaleStore }
+export { initializeLocaleDocument, type AppLocale, useLocaleStore }

@@ -15,7 +15,6 @@ const explorerListQueryMock = vi.fn()
 const fsInfoQueryMock = vi.fn()
 const usageQueryMock = vi.fn()
 const mkdirMutationMock = vi.fn()
-const uploadMutationMock = vi.fn()
 const batchMutationMock = vi.fn()
 const deleteFileMutationMock = vi.fn()
 const deleteDirMutationMock = vi.fn()
@@ -45,10 +44,6 @@ vi.mock("@/features/explorer/api/use-explorer-usage-query", () => ({
 
 vi.mock("@/features/explorer/api/use-explorer-mkdir-mutation", () => ({
   useExplorerMkdirMutation: () => mkdirMutationMock(),
-}))
-
-vi.mock("@/features/explorer/api/use-explorer-upload-mutation", () => ({
-  useExplorerUploadMutation: () => uploadMutationMock(),
 }))
 
 vi.mock("@/features/explorer/api/use-explorer-batch-mutation", () => ({
@@ -226,14 +221,6 @@ describe("ExplorerPage", () => {
     })
 
     mkdirMutationMock.mockReturnValue({
-      isPending: false,
-      isSuccess: false,
-      error: null,
-      variables: undefined,
-      mutateAsync: vi.fn(),
-    })
-
-    uploadMutationMock.mockReturnValue({
       isPending: false,
       isSuccess: false,
       error: null,
