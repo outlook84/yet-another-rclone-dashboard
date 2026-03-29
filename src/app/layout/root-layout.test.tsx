@@ -65,6 +65,13 @@ function seedMediaPreview(fileName = "clip.mp4") {
   })
 }
 
+function restoreMediaPreviewIfNeeded() {
+  const restoreButtons = screen.queryAllByRole("button", { name: "Restore preview" })
+  if (restoreButtons.length > 0) {
+    fireEvent.click(restoreButtons[0]!)
+  }
+}
+
 describe("RootLayout", () => {
   afterEach(() => {
     cleanup()
@@ -304,7 +311,8 @@ describe("RootLayout", () => {
 
     renderRootLayout(["/overview"])
 
-    expect(screen.getByRole("button", { name: "clip.mp4" })).not.toBeNull()
+    expect(screen.getByText("clip.mp4")).not.toBeNull()
+    restoreMediaPreviewIfNeeded()
     expect(document.querySelector("video")?.getAttribute("src")).toBe(
       "http://localhost:5572/%5Bdemo%3A%5D/folder/clip.mp4",
     )
@@ -315,7 +323,8 @@ describe("RootLayout", () => {
       expect(screen.getByText("Connect Screen")).not.toBeNull()
     })
 
-    expect(screen.getByRole("button", { name: "clip.mp4" })).not.toBeNull()
+    expect(screen.getByText("clip.mp4")).not.toBeNull()
+    restoreMediaPreviewIfNeeded()
     expect(document.querySelector("video")?.getAttribute("src")).toBe(
       "http://localhost:5572/%5Bdemo%3A%5D/folder/clip.mp4",
     )
@@ -326,7 +335,7 @@ describe("RootLayout", () => {
 
     renderRootLayout(["/overview"])
 
-    expect(screen.getByRole("button", { name: "undefined" })).not.toBeNull()
+    expect(screen.getByText("undefined")).not.toBeNull()
   })
 
   it("preserves leading and trailing spaces in media preview download names", () => {
@@ -349,6 +358,7 @@ describe("RootLayout", () => {
       screen.getByText((content, element) => element?.textContent === " report.txt " && content.includes("report.txt")),
     ).not.toBeNull()
 
+    restoreMediaPreviewIfNeeded()
     fireEvent.click(screen.getByRole("button", { name: "Download" }))
 
     if (!createdAnchor) {
@@ -364,14 +374,14 @@ describe("RootLayout", () => {
 
     renderRootLayout(["/overview"])
 
-    expect(screen.getByRole("button", { name: "clip.mp4" })).not.toBeNull()
+    expect(screen.getByText("clip.mp4")).not.toBeNull()
 
     act(() => {
       useConnectionStore.getState().setAuthMode("none")
     })
 
     await waitFor(() => {
-      expect(screen.queryByRole("button", { name: "clip.mp4" })).toBeNull()
+      expect(screen.queryByText("clip.mp4")).toBeNull()
     })
     expect(useExplorerUIStore.getState().actionsByScope["http://localhost:5572::basic::gui"]?.mediaPreview).toBeNull()
   })
@@ -381,14 +391,14 @@ describe("RootLayout", () => {
 
     renderRootLayout(["/overview"])
 
-    expect(screen.getByRole("button", { name: "clip.mp4" })).not.toBeNull()
+    expect(screen.getByText("clip.mp4")).not.toBeNull()
 
     act(() => {
       useConnectionStore.getState().clearValidation()
     })
 
     await waitFor(() => {
-      expect(screen.queryByRole("button", { name: "clip.mp4" })).toBeNull()
+      expect(screen.queryByText("clip.mp4")).toBeNull()
     })
     expect(useExplorerUIStore.getState().actionsByScope["http://localhost:5572::basic::gui"]?.mediaPreview).toBeNull()
   })

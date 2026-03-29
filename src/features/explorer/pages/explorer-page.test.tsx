@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
+import { act, cleanup, fireEvent, screen, waitFor, within, type RenderResult } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ExplorerPage } from "@/features/explorer/pages/explorer-page"
 import { useSavedConnectionsStore } from "@/features/auth/store/saved-connections-store"
@@ -104,6 +104,31 @@ vi.mock("@tanstack/react-virtual", () => ({
 }))
 
 describe("ExplorerPage", () => {
+  const defaultExplorerItems = [
+    {
+      name: "alpha",
+      path: "folder/alpha",
+      type: "dir",
+      size: undefined,
+      modTime: "2026-03-21T00:00:00Z",
+    },
+    {
+      name: "file.txt",
+      path: "folder/file.txt",
+      type: "file",
+      size: 123,
+      modTime: "2026-03-22T00:00:00Z",
+    },
+    {
+      name: "zeta.log",
+      path: "folder/zeta.log",
+      type: "file",
+      size: 99,
+      modTime: "2026-03-20T00:00:00Z",
+    },
+  ]
+  let explorerItems = defaultExplorerItems
+
   function setMatchMedia(matchesByQuery: Record<string, boolean>) {
     Object.defineProperty(window, "matchMedia", {
       writable: true,
@@ -120,12 +145,22 @@ describe("ExplorerPage", () => {
     })
   }
 
+  function getScrollContainer(view: RenderResult) {
+    const scrollContainer = view.container.querySelector('div[style*="max-height: 600px"]') as HTMLDivElement | null
+    if (!scrollContainer) {
+      throw new Error("scroll container not found")
+    }
+
+    return scrollContainer
+  }
+
   afterEach(() => {
     cleanup()
     vi.restoreAllMocks()
   })
 
   beforeEach(() => {
+    explorerItems = defaultExplorerItems
     startManagedUploadMock.mockReset()
     setMatchMedia({})
     useExplorerUIStore.setState({
@@ -170,36 +205,14 @@ describe("ExplorerPage", () => {
       data: [{ name: "demo" }, { name: "other" }],
     })
 
-    explorerListQueryMock.mockReturnValue({
+    explorerListQueryMock.mockImplementation(() => ({
       isLoading: false,
       error: null,
       data: {
-        items: [
-          {
-            name: "alpha",
-            path: "folder/alpha",
-            type: "dir",
-            size: undefined,
-            modTime: "2026-03-21T00:00:00Z",
-          },
-          {
-            name: "file.txt",
-            path: "folder/file.txt",
-            type: "file",
-            size: 123,
-            modTime: "2026-03-22T00:00:00Z",
-          },
-          {
-            name: "zeta.log",
-            path: "folder/zeta.log",
-            type: "file",
-            size: 99,
-            modTime: "2026-03-20T00:00:00Z",
-          },
-        ],
+        items: explorerItems,
       },
       refetch: vi.fn(),
-    })
+    }))
 
     fsInfoQueryMock.mockReturnValue({
       isLoading: false,
@@ -1117,6 +1130,105 @@ describe("ExplorerPage", () => {
           { _path: "operations/deletefile", fs: "demo:", remote: "folder/file.txt" },
         ],
       })
+    })
+  })
+
+  it("keeps the scroll position after deleting and refreshing the current list", async () => {
+    const mutateAsync = vi.fn().mockResolvedValue(undefined)
+    deleteFileMutationMock.mockReturnValue({
+      isPending: false,
+      isSuccess: false,
+      error: null,
+      variables: undefined,
+      mutateAsync,
+    })
+
+    const view = renderWithProviders(<ExplorerPage />)
+    const scrollContainer = getScrollContainer(view)
+    scrollContainer.scrollTop = 240
+
+    const fileRow = screen.getByText("file.txt").closest('[role="row"]')
+    if (!fileRow) {
+      throw new Error("file row not found")
+    }
+    const fileRowElement = fileRow as HTMLElement
+
+    fireEvent.pointerDown(within(fileRowElement).getByRole("button", { name: "Item actions" }))
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Delete" }))
+
+    const dialog = await screen.findByRole("dialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }))
+
+    await waitFor(() => {
+      expect(mutateAsync).toHaveBeenCalledWith({
+        remote: "demo",
+        currentPath: "folder",
+        targetPaths: ["folder/file.txt"],
+      })
+    })
+
+    explorerItems = defaultExplorerItems.filter((item) => item.name !== "file.txt")
+    act(() => {
+      useExplorerStore.getState().setLocation("demo", "folder")
+    })
+
+    await waitFor(() => {
+      expect(scrollContainer.scrollTop).toBe(240)
+    })
+  })
+
+  it("resets the scroll position when the sort mode changes", async () => {
+    const view = renderWithProviders(<ExplorerPage />)
+    const scrollContainer = getScrollContainer(view)
+
+    scrollContainer.scrollTop = 240
+    fireEvent.click(screen.getByRole("button", { name: /^Name / }))
+
+    await waitFor(() => {
+      expect(scrollContainer.scrollTop).toBe(0)
+    })
+  })
+
+  it("resets the scroll position when the filter text changes", async () => {
+    const view = renderWithProviders(<ExplorerPage />)
+    const scrollContainer = getScrollContainer(view)
+
+    scrollContainer.scrollTop = 240
+    fireEvent.click(screen.getByRole("button", { name: "Filter" }))
+    fireEvent.change(screen.getByPlaceholderText("Filter by name"), {
+      target: { value: "file" },
+    })
+
+    await waitFor(() => {
+      expect(scrollContainer.scrollTop).toBe(0)
+    })
+  })
+
+  it("resets the scroll position when navigating into a different path", async () => {
+    const view = renderWithProviders(<ExplorerPage />)
+    const scrollContainer = getScrollContainer(view)
+
+    scrollContainer.scrollTop = 240
+    fireEvent.click(screen.getByRole("button", { name: "alpha" }))
+
+    await waitFor(() => {
+      expect(scrollContainer.scrollTop).toBe(0)
+    })
+  })
+
+  it("resets the scroll position when switching tabs", async () => {
+    const view = renderWithProviders(<ExplorerPage />)
+    const scrollContainer = getScrollContainer(view)
+
+    act(() => {
+      useExplorerStore.getState().addTab({ remote: "demo", path: "other-folder" })
+    })
+
+    scrollContainer.scrollTop = 240
+    fireEvent.click(screen.getByText("demo:folder"))
+
+    await waitFor(() => {
+      expect(scrollContainer.scrollTop).toBe(0)
     })
   })
 

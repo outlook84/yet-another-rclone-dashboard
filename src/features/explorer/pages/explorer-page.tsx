@@ -416,18 +416,27 @@ function ExplorerPage() {
     return filterAndSortExplorerItems(explorerQuery.data?.items ?? [], filterText, sortMode)
   }, [explorerQuery.data?.items, filterText, sortMode])
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const scrollResetKey = `${activeTabId}::${currentRemote}::${currentPath}::${sortMode}::${filterText}`
+  const previousScrollResetKeyRef = useRef<string | null>(null)
   const virtualizer = useVirtualizer({
     count: visibleItems.length,
     getScrollElement: () => scrollContainerRef.current,
     estimateSize: () => 40,
     overscan: 8,
   })
-  // Reset scroll to top when item list changes (navigation, sort, filter)
+  // Keep scroll position during data refreshes like delete, but reset for navigation/sort/filter changes.
   useEffect(() => {
+    const previousKey = previousScrollResetKeyRef.current
+    previousScrollResetKeyRef.current = scrollResetKey
+
+    if (previousKey === null || previousKey === scrollResetKey) {
+      return
+    }
+
     if (scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = 0
     }
-  }, [visibleItems])
+  }, [scrollResetKey])
   const selectedItems = useMemo(() => {
     const selectedSet = new Set(selectedPaths)
     return (explorerQuery.data?.items ?? [])
