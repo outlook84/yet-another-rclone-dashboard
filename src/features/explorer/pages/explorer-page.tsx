@@ -1,6 +1,6 @@
 import { IconArrowUp, IconChevronDown, IconColumns, IconCopy, IconDotsVertical, IconFile, IconFolderFilled, IconHome, IconPencil, IconPlus, IconRefresh, IconX } from "@tabler/icons-react"
 import { Loader2 } from "lucide-react"
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent as ReactMouseEvent } from "react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { useExplorerCopyDirMutation } from "@/features/explorer/api/use-explorer-copy-dir-mutation"
 import { useRemotesQuery } from "@/features/remotes/api/use-remotes-query"
@@ -67,6 +67,11 @@ import {
 type PublicLinkState = {
   fileName: string
   url: string
+} | null
+
+type ExplorerRowUiState = {
+  tabId: string
+  path: string
 } | null
 
 const EMPTY_SELECTED_PATHS: string[] = []
@@ -147,7 +152,12 @@ function ExplorerPage() {
   const [showFilterInput, setShowFilterInput] = useState(false)
   const [hoveredTabId, setHoveredTabId] = useState<string | null>(null)
   const [mobileSessionsOpened, setMobileSessionsOpened] = useState(false)
+  const [activeItemState, setActiveItemState] = useState<ExplorerRowUiState>(null)
+  const [openRowActionState, setOpenRowActionState] = useState<ExplorerRowUiState>(null)
   const uploadInputRef = useRef<HTMLInputElement | null>(null)
+  const rowRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const pendingFocusPathRef = useRef<string | null>(null)
+  const pendingFocusFrameRef = useRef<number | null>(null)
   const setInspectDirectoryPaths = useExplorerUIStore((state) => state.setInspectDirectoryPaths)
   const setSelectionModes = useExplorerUIStore((state) => state.setSelectionModes)
   const setSelectedPathsByTab = useExplorerUIStore((state) => state.setSelectedPathsByTab)
@@ -261,21 +271,7 @@ function ExplorerPage() {
       url: buildRcServeUrl(apiBaseUrl, currentRemote, item.srcPath),
     })
   }, [apiBaseUrl, currentRemote, rcServeAvailable, setMediaPreview, setUploadCenterCollapsed])
-  const openNewDirectoryInput = (enabled: boolean) => {
-    setShowNewDirectoryInput(enabled)
-
-    if (enabled) {
-      setShowFilterInput(false)
-      setSelectionMode(false)
-    }
-  }
-  const openFilterInput = (enabled: boolean) => {
-    setShowFilterInput(enabled)
-    if (enabled) {
-      setShowNewDirectoryInput(false)
-    }
-  }
-  const setSelectionMode = (enabled: boolean) => {
+  const setSelectionMode = useCallback((enabled: boolean) => {
     setSelectionModes((state) => ({
       ...state,
       [activeTabId]: enabled,
@@ -287,7 +283,21 @@ function ExplorerPage() {
         [activeTabId]: [],
       }))
     }
-  }
+  }, [activeTabId, setSelectedPathsByTab, setSelectionModes])
+  const openNewDirectoryInput = useCallback((enabled: boolean) => {
+    setShowNewDirectoryInput(enabled)
+
+    if (enabled) {
+      setShowFilterInput(false)
+      setSelectionMode(false)
+    }
+  }, [setSelectionMode])
+  const openFilterInput = useCallback((enabled: boolean) => {
+    setShowFilterInput(enabled)
+    if (enabled) {
+      setShowNewDirectoryInput(false)
+    }
+  }, [])
   const toggleSelectionMode = (enabled: boolean) => {
     setSelectionMode(enabled)
 
@@ -320,13 +330,13 @@ function ExplorerPage() {
       [activeTabId]: path,
     }))
   }
-  const clearInspectDirectoryPath = () => {
+  const clearInspectDirectoryPath = useCallback(() => {
     setInspectDirectoryPaths((state) => {
       const nextState = { ...state }
       delete nextState[activeTabId]
       return nextState
     })
-  }
+  }, [activeTabId, setInspectDirectoryPaths])
   const resolveTargetPath = (
     item: PendingTransferItem,
     destinationPath: string,
@@ -416,6 +426,16 @@ function ExplorerPage() {
     return filterAndSortExplorerItems(explorerQuery.data?.items ?? [], filterText, sortMode)
   }, [explorerQuery.data?.items, filterText, sortMode])
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const activeItemPath = activeItemState?.tabId === activeTabId ? activeItemState.path : null
+  const openRowActionPath = openRowActionState?.tabId === activeTabId ? openRowActionState.path : null
+  const visibleItemPaths = useMemo(
+    () => visibleItems.map((item) => joinPath(currentPath, item.name)),
+    [currentPath, visibleItems],
+  )
+  const activeItemIndex = useMemo(
+    () => (activeItemPath ? visibleItemPaths.indexOf(activeItemPath) : -1),
+    [activeItemPath, visibleItemPaths],
+  )
   const scrollResetKey = `${activeTabId}::${currentRemote}::${currentPath}::${sortMode}::${filterText}`
   const previousScrollResetKeyRef = useRef<string | null>(null)
   const virtualizer = useVirtualizer({
@@ -514,7 +534,78 @@ function ExplorerPage() {
     setFilterText("")
     setShowFilterInput(false)
     setShowNewDirectoryInput(false)
+    setActiveItemState(null)
+    setOpenRowActionState(null)
   }, [activeTabId])
+
+  useEffect(() => {
+    if (visibleItemPaths.length === 0) {
+      setActiveItemState(null)
+      return
+    }
+
+    if (activeItemPath && !visibleItemPaths.includes(activeItemPath)) {
+      setActiveItemState(
+        visibleItemPaths[0]
+          ? {
+              tabId: activeTabId,
+              path: visibleItemPaths[0],
+            }
+          : null,
+      )
+    }
+  }, [activeItemPath, activeTabId, visibleItemPaths])
+
+  useEffect(() => {
+    if (!pendingFocusPathRef.current) {
+      return
+    }
+
+    const targetPath = pendingFocusPathRef.current
+    const row = rowRefs.current[targetPath]
+    if (row) {
+      row.focus()
+      pendingFocusPathRef.current = null
+      if (pendingFocusFrameRef.current !== null) {
+        window.cancelAnimationFrame(pendingFocusFrameRef.current)
+        pendingFocusFrameRef.current = null
+      }
+      return
+    }
+
+    let attemptsRemaining = 8
+    const tryFocus = () => {
+      const pendingPath = pendingFocusPathRef.current
+      if (!pendingPath) {
+        pendingFocusFrameRef.current = null
+        return
+      }
+
+      const pendingRow = rowRefs.current[pendingPath]
+      if (pendingRow) {
+        pendingRow.focus()
+        pendingFocusPathRef.current = null
+        pendingFocusFrameRef.current = null
+        return
+      }
+
+      if (attemptsRemaining <= 0) {
+        pendingFocusFrameRef.current = null
+        return
+      }
+
+      attemptsRemaining -= 1
+      pendingFocusFrameRef.current = window.requestAnimationFrame(tryFocus)
+    }
+
+    pendingFocusFrameRef.current = window.requestAnimationFrame(tryFocus)
+    return () => {
+      if (pendingFocusFrameRef.current !== null) {
+        window.cancelAnimationFrame(pendingFocusFrameRef.current)
+        pendingFocusFrameRef.current = null
+      }
+    }
+  }, [activeItemPath, visibleItems])
 
   const didMountRef = useRef(false)
   const prevTabIdRef = useRef(activeTabId)
@@ -581,7 +672,7 @@ function ExplorerPage() {
     setSelectionMode(false)
     clearSelection()
   }
-  const handleSingleDelete = async (item: PendingTransferItem) => {
+  const handleSingleDelete = useCallback(async (item: PendingTransferItem) => {
     const confirmed = await confirm({
       title: messages.explorer.deleteItem(),
       message: messages.explorer.deleteItemMessage(item.srcPath),
@@ -606,9 +697,17 @@ function ExplorerPage() {
       currentPath,
       targetPaths: [item.srcPath],
     })
-  }
+  }, [
+    confirm,
+    currentPath,
+    currentRemote,
+    deleteDirMutation,
+    deleteFileMutation,
+    messages.common,
+    messages.explorer,
+  ])
 
-  const handleDeleteSelection = async () => {
+  const handleDeleteSelection = useCallback(async () => {
     if (selectedItems.length === 0) {
       return
     }
@@ -640,7 +739,322 @@ function ExplorerPage() {
 
     clearSelection()
     setSelectionMode(false)
-  }
+  }, [
+    batchMutation,
+    clearSelection,
+    confirm,
+    currentPath,
+    currentRemote,
+    messages.common,
+    messages.explorer,
+    selectedItems,
+    setSelectionMode,
+  ])
+  const focusItemAtIndex = useCallback((index: number) => {
+    const boundedIndex = Math.max(0, Math.min(index, visibleItemPaths.length - 1))
+    const nextPath = visibleItemPaths[boundedIndex]
+
+    if (!nextPath) {
+      return
+    }
+
+    setActiveItemState({
+      tabId: activeTabId,
+      path: nextPath,
+    })
+    pendingFocusPathRef.current = nextPath
+    virtualizer.scrollToIndex?.(boundedIndex, { align: "auto" })
+    const row = rowRefs.current[nextPath]
+    row?.scrollIntoView?.({ block: "nearest" })
+    row?.focus()
+  }, [activeTabId, virtualizer, visibleItemPaths])
+
+  const closeTransientExplorerUi = useCallback(() => {
+    let closed = false
+
+    if (publicLink) {
+      setPublicLink(null)
+      closed = true
+    }
+
+    if (openRowActionPath) {
+      setOpenRowActionState(null)
+      closed = true
+    }
+
+    if (pendingRenameAction) {
+      setPendingRenameAction(null)
+      closed = true
+    }
+
+    if (pendingTransferAction) {
+      setPendingTransferAction(null)
+      closed = true
+    }
+
+    if (showNewDirectoryInput) {
+      openNewDirectoryInput(false)
+      setNewDirectoryName("")
+      closed = true
+    }
+
+    if (showFilterInput) {
+      setShowFilterInput(false)
+      setFilterText("")
+      closed = true
+    }
+
+    if (isPathEditing) {
+      setLocationDraft(fullPathLabel)
+      setIsPathEditing(false)
+      closed = true
+    }
+
+    if (selectionMode) {
+      clearSelection()
+      setSelectionMode(false)
+      closed = true
+    }
+
+    if (inspectDirectoryPath) {
+      clearInspectDirectoryPath()
+      closed = true
+    }
+
+    return closed
+  }, [
+    clearInspectDirectoryPath,
+    clearSelection,
+    fullPathLabel,
+    inspectDirectoryPath,
+    isPathEditing,
+    openNewDirectoryInput,
+    pendingRenameAction,
+    pendingTransferAction,
+    publicLink,
+    selectionMode,
+    openRowActionPath,
+    setPendingRenameAction,
+    setSelectionMode,
+    setPendingTransferAction,
+    setOpenRowActionState,
+    showFilterInput,
+    showNewDirectoryInput,
+  ])
+
+  const handleExplorerShortcut = useCallback(async (
+    input: {
+      key: string
+      ctrlKey: boolean
+      preventDefault: () => void
+    },
+    currentRowItem: PendingTransferItem,
+  ) => {
+    if (input.key === "ArrowDown") {
+      input.preventDefault()
+      if (activeItemIndex < 0) {
+        focusItemAtIndex(0)
+      } else {
+        focusItemAtIndex(activeItemIndex + 1)
+      }
+      return
+    }
+
+    if (input.key === "ArrowUp") {
+      input.preventDefault()
+      if (activeItemIndex < 0) {
+        focusItemAtIndex(0)
+      } else {
+        focusItemAtIndex(activeItemIndex - 1)
+      }
+      return
+    }
+
+    if (input.key === "Home") {
+      input.preventDefault()
+      focusItemAtIndex(0)
+      return
+    }
+
+    if (input.key === "End") {
+      input.preventDefault()
+      focusItemAtIndex(visibleItemPaths.length - 1)
+      return
+    }
+
+    if (input.key === "PageDown") {
+      input.preventDefault()
+      const pageSize = Math.max(Math.floor((scrollContainerRef.current?.clientHeight ?? 400) / 40), 1)
+      if (activeItemIndex < 0) {
+        focusItemAtIndex(pageSize)
+      } else {
+        focusItemAtIndex(activeItemIndex + pageSize)
+      }
+      return
+    }
+
+    if (input.key === "PageUp") {
+      input.preventDefault()
+      const pageSize = Math.max(Math.floor((scrollContainerRef.current?.clientHeight ?? 400) / 40), 1)
+      if (activeItemIndex < 0) {
+        focusItemAtIndex(0)
+      } else {
+        focusItemAtIndex(activeItemIndex - pageSize)
+      }
+      return
+    }
+
+    if (input.key === "Escape") {
+      if (closeTransientExplorerUi()) {
+        input.preventDefault()
+      }
+      return
+    }
+
+    if (input.key === "Backspace") {
+      if (currentPath) {
+        input.preventDefault()
+        setCurrentPath(parentPath(currentPath))
+      }
+      return
+    }
+
+    if (input.key === "Enter" && input.ctrlKey) {
+      if (!selectionMode) {
+        input.preventDefault()
+        setOpenRowActionState({
+          tabId: activeTabId,
+          path: currentRowItem.srcPath,
+        })
+      }
+      return
+    }
+
+    if (input.key === "Enter") {
+      if (currentRowItem.itemType === "dir") {
+        input.preventDefault()
+        setCurrentPath(currentRowItem.srcPath)
+      }
+      return
+    }
+
+    if (input.key === "Delete") {
+      if (selectionMode && selectedItems.length > 0) {
+        input.preventDefault()
+        await handleDeleteSelection()
+        return
+      }
+
+      input.preventDefault()
+      await handleSingleDelete(currentRowItem)
+    }
+  }, [
+    activeItemIndex,
+    closeTransientExplorerUi,
+    currentPath,
+    focusItemAtIndex,
+    handleDeleteSelection,
+    handleSingleDelete,
+    selectedItems.length,
+    selectionMode,
+    activeTabId,
+    setCurrentPath,
+    setOpenRowActionState,
+    visibleItemPaths.length,
+  ])
+  const handleExplorerRowKeyDown = useCallback(async (
+    event: ReactKeyboardEvent<HTMLDivElement>,
+    currentRowItem: PendingTransferItem,
+  ) => {
+    const target = event.target
+    if (!(target instanceof HTMLElement) || target !== event.currentTarget) {
+      return
+    }
+
+    await handleExplorerShortcut({
+      key: event.key,
+      ctrlKey: event.ctrlKey,
+      preventDefault: () => event.preventDefault(),
+    }, currentRowItem)
+  }, [handleExplorerShortcut])
+  const handleTransientInputEscape = useCallback((event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== "Escape") {
+      return
+    }
+
+    event.preventDefault()
+
+    if (showNewDirectoryInput) {
+      setNewDirectoryName("")
+      openNewDirectoryInput(false)
+    }
+
+    if (showFilterInput) {
+      setFilterText("")
+      setShowFilterInput(false)
+    }
+  }, [openNewDirectoryInput, showFilterInput, showNewDirectoryInput])
+  const activateExplorerTab = useCallback((tabId: string) => {
+    pendingFocusPathRef.current = null
+    if (document.activeElement instanceof HTMLElement && document.activeElement.closest("[role='row']")) {
+      document.activeElement.blur()
+    }
+    setActiveItemState(null)
+    setOpenRowActionState(null)
+    activateTab(tabId)
+  }, [activateTab])
+
+  useEffect(() => {
+    const handleWindowKeyDown = (event: KeyboardEvent) => {
+      const target = event.target
+      if (
+        target instanceof HTMLElement &&
+        (target.isContentEditable ||
+          ["INPUT", "TEXTAREA", "SELECT", "BUTTON"].includes(target.tagName) ||
+          target.closest("[role='dialog'], [role='menu'], [role='row']"))
+      ) {
+        return
+      }
+
+      const handlesExplorerNavigation =
+        event.key === "ArrowDown" ||
+        event.key === "ArrowUp" ||
+        event.key === "Home" ||
+        event.key === "End" ||
+        event.key === "PageDown" ||
+        event.key === "PageUp"
+
+      if (handlesExplorerNavigation && visibleItems.length > 0) {
+        const fallbackIndex = activeItemIndex >= 0 ? activeItemIndex : 0
+        const fallbackItem = visibleItems[fallbackIndex]
+        if (!fallbackItem) {
+          return
+        }
+
+        void handleExplorerShortcut({
+          key: event.key,
+          ctrlKey: event.ctrlKey,
+          preventDefault: () => event.preventDefault(),
+        }, {
+          itemType: fallbackItem.type,
+          itemName: fallbackItem.name,
+          srcPath: joinPath(currentPath, fallbackItem.name),
+          mimeType: fallbackItem.mimeType,
+          size: fallbackItem.size,
+        })
+        return
+      }
+
+      if (event.key === "Escape" && closeTransientExplorerUi()) {
+        event.preventDefault()
+      }
+    }
+
+    window.addEventListener("keydown", handleWindowKeyDown)
+    return () => {
+      window.removeEventListener("keydown", handleWindowKeyDown)
+    }
+  }, [activeItemIndex, closeTransientExplorerUi, currentPath, handleExplorerShortcut, visibleItems])
 
   const applyLocationDraft = () => {
     const draft = locationDraft.trim()
@@ -806,7 +1220,7 @@ function ExplorerPage() {
                 <UICard
                   key={tab.id}
                   onClick={() => {
-                    activateTab(tab.id)
+                    activateExplorerTab(tab.id)
                     setMobileSessionsOpened(false)
                   }}
                   className={
@@ -887,11 +1301,11 @@ function ExplorerPage() {
                     const active = tab.id === activeTabId
 
                     return (
-                      <div
-                        key={tab.id}
-                        onMouseEnter={() => setHoveredTabId(tab.id)}
+                        <div
+                          key={tab.id}
+                          onMouseEnter={() => setHoveredTabId(tab.id)}
                         onMouseLeave={() => setHoveredTabId((current) => (current === tab.id ? null : current))}
-                        onClick={() => activateTab(tab.id)}
+                        onClick={() => activateExplorerTab(tab.id)}
                         className={cn(
                           "flex h-8 w-max max-w-[20%] cursor-pointer items-center justify-between gap-2 rounded-[10px] border px-3 transition-colors",
                           active
@@ -1134,6 +1548,7 @@ function ExplorerPage() {
                       placeholder={resolveInputExample(inputExamples.newFolderName, locale)}
                       value={newDirectoryName}
                       onChange={(event) => setNewDirectoryName(event.currentTarget.value)}
+                      onKeyDown={handleTransientInputEscape}
                     />
                   </label>
                   <UIButton
@@ -1160,6 +1575,7 @@ function ExplorerPage() {
                     placeholder={messages.explorer.filterByName()}
                     value={filterText}
                     onChange={(event) => setFilterText(event.currentTarget.value)}
+                    onKeyDown={handleTransientInputEscape}
                   />
                 </label>
               ) : null}
@@ -1647,10 +2063,28 @@ function ExplorerPage() {
 
                       return (
                         <div
-                          key={`${item.path}:${item.name}`}
+                          key={`${activeTabId}:${item.path}:${item.name}`}
                           role="row"
                           data-index={virtualRow.index}
-                          ref={virtualizer.measureElement}
+                          ref={(node) => {
+                            virtualizer.measureElement(node)
+                            rowRefs.current[itemPath] = node
+                          }}
+                          tabIndex={activeItemPath === itemPath || (!activeItemPath && virtualRow.index === 0) ? 0 : -1}
+                          onFocus={() => setActiveItemState({ tabId: activeTabId, path: itemPath })}
+                          onClick={(event: ReactMouseEvent<HTMLDivElement>) => {
+                            const target = event.target
+                            if (target instanceof HTMLElement && target.closest("button,input,label,[role='menu']")) {
+                              setActiveItemState({ tabId: activeTabId, path: itemPath })
+                              return
+                            }
+
+                            setActiveItemState({ tabId: activeTabId, path: itemPath })
+                            event.currentTarget.focus()
+                          }}
+                          onKeyDown={(event) => {
+                            void handleExplorerRowKeyDown(event, rowItem)
+                          }}
                           style={{
                             position: "absolute",
                             top: 0,
@@ -1658,7 +2092,12 @@ function ExplorerPage() {
                             width: "100%",
                             transform: `translateY(${virtualRow.start}px)`,
                           }}
-                          className="flex w-full items-stretch border-b border-[color:var(--app-table-row-border)] align-top transition-colors last:border-b-0 hover:bg-[color:var(--app-table-row-hover)]"
+                          className={cn(
+                            "flex w-full items-stretch border-b border-[color:var(--app-table-row-border)] align-top transition-colors last:border-b-0 hover:bg-[color:var(--app-table-row-hover)] focus:outline-none",
+                            activeItemPath === itemPath
+                              ? "bg-[color:var(--app-table-row-hover)] ring-1 ring-inset ring-[color:var(--app-interactive-selected-border)]"
+                              : "",
+                          )}
                         >
                           {/* Name cell — flex-1 */}
                           <div
@@ -1673,18 +2112,36 @@ function ExplorerPage() {
                                   onChange={() => toggleSelectedPath(itemPath)}
                                 />
                               ) : (
-                                <DropdownMenu>
-                                  <DropdownMenuTrigger asChild>
-                                    <UIButton
-                                      aria-label={messages.explorer.itemActions()}
-                                      className="h-6 w-6 shrink-0 rounded-[7px] p-0 text-[color:var(--app-accent-strong)]"
-                                      size="icon"
-                                      variant="ghost"
-                                    >
+                                 <DropdownMenu
+                                    open={openRowActionPath === itemPath}
+                                    onOpenChange={(open) => {
+                                      if (open) {
+                                        setOpenRowActionState({ tabId: activeTabId, path: itemPath })
+                                      } else {
+                                        setOpenRowActionState((current) =>
+                                          current?.tabId === activeTabId && current.path === itemPath ? null : current,
+                                        )
+                                      }
+                                    }}
+                                 >
+                                   <DropdownMenuTrigger asChild>
+                                     <UIButton
+                                       aria-label={messages.explorer.itemActions()}
+                                       className="h-6 w-6 shrink-0 rounded-[7px] p-0 text-[color:var(--app-accent-strong)]"
+                                       size="icon"
+                                       variant="ghost"
+                                     >
                                       <IconDotsVertical size={14} stroke={1.8} />
                                     </UIButton>
                                   </DropdownMenuTrigger>
-                                  <DropdownMenuContent align="start" className="w-[170px]">
+                                  <DropdownMenuContent
+                                    align="start"
+                                    className="w-[170px]"
+                                    onCloseAutoFocus={(event) => {
+                                      event.preventDefault()
+                                      rowRefs.current[itemPath]?.focus()
+                                    }}
+                                  >
                                     {shouldShowRcServeCheck ? (
                                       <DropdownMenuItem disabled className="gap-2 opacity-70">
                                         <Loader2 className="h-3.5 w-3.5 animate-spin" />

@@ -213,4 +213,43 @@ describe("GlobalUploadCenter", () => {
 
     expect(screen.getByText("Upload Tasks")).not.toBeNull()
   })
+
+  it("collapses on Escape even when focus is inside upload panel actions", () => {
+    renderWithProviders(<GlobalUploadCenter />)
+
+    const collapseButton = screen.getByRole("button", { name: "Collapse upload tasks" })
+    collapseButton.focus()
+    fireEvent.keyDown(collapseButton, { key: "Escape" })
+
+    expect(useUploadCenterStore.getState().collapsed).toBe(true)
+  })
+
+  it("collapses on Escape even when focus is outside the upload panel", () => {
+    renderWithProviders(
+      <>
+        <button type="button">outside</button>
+        <GlobalUploadCenter />
+      </>,
+    )
+
+    const outsideButton = screen.getByRole("button", { name: "outside" })
+    outsideButton.focus()
+    fireEvent.keyDown(outsideButton, { key: "Escape" })
+
+    expect(useUploadCenterStore.getState().collapsed).toBe(true)
+  })
+
+  it("does not collapse when Escape was already consumed by higher-priority UI", () => {
+    renderWithProviders(<GlobalUploadCenter />)
+
+    const event = new KeyboardEvent("keydown", {
+      key: "Escape",
+      bubbles: true,
+      cancelable: true,
+    })
+    event.preventDefault()
+    window.dispatchEvent(event)
+
+    expect(useUploadCenterStore.getState().collapsed).toBe(false)
+  })
 })

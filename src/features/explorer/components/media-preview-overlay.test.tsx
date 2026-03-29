@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, screen } from "@testing-library/react"
+import { cleanup, createEvent, fireEvent, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { MediaPreviewOverlay } from "@/features/explorer/components/media-preview-overlay"
 import { useExplorerUIStore } from "@/features/explorer/store/explorer-ui-store"
@@ -145,5 +145,110 @@ describe("MediaPreviewOverlay", () => {
 
     expect(document.querySelector(".tabler-icon-photo")).not.toBeNull()
     expect(document.querySelector(".tabler-icon-player-play")).toBeNull()
+  })
+
+  it("toggles video playback with Space", () => {
+    const playMock = vi.fn().mockResolvedValue(undefined)
+    const pauseMock = vi.fn()
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(playMock)
+    vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(pauseMock)
+
+    renderWithProviders(<MediaPreviewOverlay />)
+
+    const video = document.querySelector("video")
+    if (!(video instanceof HTMLVideoElement)) {
+      throw new Error("video preview not found")
+    }
+
+    Object.defineProperty(video, "paused", {
+      configurable: true,
+      get: () => true,
+    })
+    fireEvent.keyDown(window, { key: " " })
+    expect(playMock).toHaveBeenCalled()
+
+    Object.defineProperty(video, "paused", {
+      configurable: true,
+      get: () => false,
+    })
+    fireEvent.keyDown(window, { key: " " })
+    expect(pauseMock).toHaveBeenCalled()
+  })
+
+  it("does not hijack Space when a preview action button is focused", () => {
+    const playMock = vi.fn().mockResolvedValue(undefined)
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(playMock)
+
+    renderWithProviders(<MediaPreviewOverlay />)
+
+    const downloadButton = screen.getByRole("button", { name: "Download" })
+    downloadButton.focus()
+    fireEvent.keyDown(downloadButton, { key: " " })
+
+    expect(playMock).not.toHaveBeenCalled()
+  })
+
+  it("does not block Space on a focused preview action button", () => {
+    renderWithProviders(<MediaPreviewOverlay />)
+    const downloadButton = screen.getByRole("button", { name: "Download" })
+    downloadButton.focus()
+
+    const event = createEvent.keyDown(downloadButton, { key: " ", code: "Space", charCode: 32 })
+    downloadButton.dispatchEvent(event)
+
+    expect(event.defaultPrevented).toBe(false)
+  })
+
+  it("does not block Space on the focused preview title button", () => {
+    renderWithProviders(<MediaPreviewOverlay />)
+
+    const titleButton = screen.getByRole("button", { name: "clip.mp4" })
+    titleButton.focus()
+
+    const event = createEvent.keyDown(titleButton, { key: " ", code: "Space", charCode: 32 })
+    titleButton.dispatchEvent(event)
+
+    expect(event.defaultPrevented).toBe(false)
+  })
+
+  it("keeps Space controlling playback after the preview title is clicked", () => {
+    const playMock = vi.fn().mockResolvedValue(undefined)
+    vi.spyOn(HTMLMediaElement.prototype, "play").mockImplementation(playMock)
+
+    renderWithProviders(<MediaPreviewOverlay />)
+
+    const titleButton = screen.getByRole("button", { name: "clip.mp4" })
+    fireEvent.pointerDown(titleButton)
+    fireEvent.click(titleButton)
+
+    fireEvent.keyDown(window, { key: " " })
+
+    expect(playMock).toHaveBeenCalled()
+    expect(document.activeElement).not.toBe(titleButton)
+  })
+
+  it("does not block typing spaces into focused text inputs", () => {
+    renderWithProviders(<MediaPreviewOverlay />)
+
+    const input = document.createElement("input")
+    document.body.appendChild(input)
+    input.focus()
+
+    const event = createEvent.keyDown(input, { key: " ", code: "Space", charCode: 32 })
+    input.dispatchEvent(event)
+
+    expect(event.defaultPrevented).toBe(false)
+
+    input.remove()
+  })
+
+  it("minimizes the preview instead of closing it on Escape", () => {
+    renderWithProviders(<MediaPreviewOverlay />)
+
+    fireEvent.keyDown(window, { key: "Escape" })
+
+    const scopeState = useExplorerUIStore.getState().actionsByScope["http://localhost:5572::basic::gui"]
+    expect(scopeState?.mediaPreview).not.toBeNull()
+    expect(scopeState?.mediaPreviewMinimized).toBe(true)
   })
 })

@@ -202,6 +202,19 @@ handle @rclone {
 ### 2. 访问
 在浏览器打开配置的地址（如 `http://127.0.0.1:5572` 或你的服务器 IP/域名）即可开始使用。
 
+### 3. 快捷键
+
+- Explorer 列表导航：
+  `ArrowUp` / `ArrowDown` 切换当前活动行，`Home` 跳到第一行，`End` 跳到最后一行，`PageUp` / `PageDown` 按一屏步长移动。
+- Explorer 行操作：
+  `Enter` 打开当前目录，`Ctrl+Enter` 打开当前行操作菜单，`Backspace` 返回上一级目录，`Delete` 删除当前活动行或当前选择，并继续走确认流程。
+- Explorer 临时 UI：
+  `Esc` 会优先关闭 Explorer 内部的临时界面，包括行菜单、路径编辑状态、目录摘要面板。
+- 媒体预览：
+  `Space` 切换音频/视频的播放与暂停，`Esc` 最小化预览。
+- 上传面板：
+  `Esc` 会收起上传面板。
+
 ## 鸣谢
 
 Favicon 图标基于 Noto Emoji 资源制作。随仓库附带的授权文本见 [LICENSES/Noto-Emoji-LICENSE.txt](../LICENSES/Noto-Emoji-LICENSE.txt)。

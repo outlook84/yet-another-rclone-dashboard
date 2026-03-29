@@ -202,6 +202,19 @@ Ensure your Rclone instance is running using one of the methods above.
 ### 2. Open Browser
 Navigate to the configured address (e.g., `http://127.0.0.1:5572` or your server IP/domain) to start using the dashboard.
 
+### 3. Keyboard Shortcuts
+
+- Explorer list navigation:
+  `ArrowUp` / `ArrowDown` move the active row, `Home` jumps to the first row, `End` jumps to the last row, and `PageUp` / `PageDown` move by one visible page.
+- Explorer row actions:
+  `Enter` opens the active directory, `Ctrl+Enter` opens the active row action menu, `Backspace` goes to the parent directory, and `Delete` deletes the active row or current selection after confirmation.
+- Explorer transient UI:
+  `Esc` closes Explorer-local transient UI first, including the row action menu, path editing state, and directory summary panel.
+- Media preview:
+  `Space` toggles play / pause for audio and video previews, and `Esc` minimizes the preview.
+- Upload center:
+  `Esc` collapses the upload center when it is open.
+
 ## Credits
 
 Favicon artwork is derived from Noto Emoji. See [LICENSES/Noto-Emoji-LICENSE.txt](./LICENSES/Noto-Emoji-LICENSE.txt) for the bundled license text.

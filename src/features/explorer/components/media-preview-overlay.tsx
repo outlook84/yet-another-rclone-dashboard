@@ -109,6 +109,8 @@ function MediaPreviewOverlay() {
   const setMediaPreviewSize = useExplorerUIStore((state) => state.setMediaPreviewSize)
   const setUploadCenterCollapsed = useUploadCenterStore((state) => state.setCollapsed)
   const [titleVisibleForPath, setTitleVisibleForPath] = useState<string | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
   const mediaPreviewResizeStateRef = useRef<{
     pointerId: number
     startX: number
@@ -236,6 +238,71 @@ function MediaPreviewOverlay() {
     }
   }, [compactMediaPreview, mediaPreview, setMediaPreviewSize])
 
+  useEffect(() => {
+    if (!mediaPreview) {
+      return
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) {
+        return
+      }
+
+      const target = event.target
+      const targetElement = target instanceof HTMLElement ? target : null
+      const isTextEntryTarget = Boolean(
+        targetElement &&
+        (
+          targetElement.isContentEditable ||
+          ["INPUT", "TEXTAREA", "SELECT"].includes(targetElement.tagName)
+        )
+      )
+      const isInteractiveTarget = Boolean(
+        targetElement &&
+        (
+          ["BUTTON", "AUDIO", "VIDEO"].includes(targetElement.tagName) ||
+          targetElement.closest("button, a, [role='button']")
+        )
+      )
+
+      if (isTextEntryTarget) {
+        return
+      }
+
+      if (event.key === " " && isInteractiveTarget) {
+        return
+      }
+
+      if (event.key === "Escape") {
+        event.preventDefault()
+        setTitleVisibleForPath(null)
+        setMediaPreviewMinimized(true)
+        return
+      }
+
+      if (event.key !== " ") {
+        return
+      }
+
+      event.preventDefault()
+      const mediaElement = mediaPreview.kind === "audio" ? audioRef.current : mediaPreview.kind === "video" ? videoRef.current : null
+      if (!mediaElement) {
+        return
+      }
+
+      if (mediaElement.paused) {
+        void mediaElement.play()
+      } else {
+        mediaElement.pause()
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
+    }
+  }, [mediaPreview, setMediaPreviewMinimized])
+
   if (!mediaPreview) {
     return null
   }
@@ -353,6 +420,11 @@ function MediaPreviewOverlay() {
               className="block w-full overflow-hidden text-ellipsis whitespace-nowrap text-left text-sm font-bold text-[color:var(--app-text)]"
               aria-label={displayFileName}
               title={compactMediaPreview ? displayFileName : undefined}
+              onPointerDown={(event) => {
+                // Pointer clicks should not trap keyboard focus on the title button,
+                // otherwise Space stops controlling media playback in Edge.
+                event.preventDefault()
+              }}
               onPointerEnter={() => !compactMediaPreview && setTitleVisibleForPath(mediaPreview.path)}
               onPointerLeave={() => !compactMediaPreview && setTitleVisibleForPath(null)}
               onFocus={() => !compactMediaPreview && setTitleVisibleForPath(mediaPreview.path)}
@@ -439,11 +511,12 @@ function MediaPreviewOverlay() {
             />
           ) : null}
           {mediaPreview.kind === "audio" ? (
-            <audio src={mediaPreview.url} controls className="w-full min-w-0" />
+            <audio ref={audioRef} src={mediaPreview.url} controls className="w-full min-w-0" />
           ) : null}
           {mediaPreview.kind === "video" ? (
             <div className="flex h-full w-full items-center justify-center bg-black">
               <video
+                ref={videoRef}
                 src={mediaPreview.url}
                 controls
                 className="block h-full w-full object-contain bg-black"

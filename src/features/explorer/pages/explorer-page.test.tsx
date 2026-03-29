@@ -91,6 +91,7 @@ vi.mock("@/features/uploads/lib/upload-manager", () => ({
 vi.mock("@tanstack/react-virtual", () => ({
   useVirtualizer: ({ count, estimateSize }: { count: number; estimateSize: () => number }) => ({
     getTotalSize: () => count * estimateSize(),
+    scrollToIndex: vi.fn(),
     getVirtualItems: () =>
       Array.from({ length: count }, (_, i) => ({
         index: i,
@@ -1300,5 +1301,293 @@ describe("ExplorerPage", () => {
 
     expect(useExplorerStore.getState().currentRemote).toBe("other")
     expect(useExplorerStore.getState().currentPath).toBe("archive/2026")
+  })
+
+  it("moves the active explorer row with arrow keys", async () => {
+    renderWithProviders(<ExplorerPage />)
+
+    const alphaRow = screen.getByText("alpha").closest('[role="row"]')
+    const fileRow = screen.getByText("file.txt").closest('[role="row"]')
+    if (!(alphaRow instanceof HTMLElement) || !(fileRow instanceof HTMLElement)) {
+      throw new Error("expected explorer rows")
+    }
+
+    alphaRow.focus()
+    await waitFor(() => {
+      expect(document.activeElement).toBe(alphaRow)
+    })
+
+    fireEvent.keyDown(alphaRow, { key: "ArrowDown" })
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(fileRow)
+    })
+  })
+
+  it("jumps to the first and last explorer rows with Home and End", () => {
+    renderWithProviders(<ExplorerPage />)
+
+    const alphaRow = screen.getByText("alpha").closest('[role="row"]')
+    const logRow = screen.getByText("zeta.log").closest('[role="row"]')
+    if (!(alphaRow instanceof HTMLElement) || !(logRow instanceof HTMLElement)) {
+      throw new Error("expected explorer rows")
+    }
+
+    alphaRow.focus()
+    fireEvent.keyDown(alphaRow, { key: "End" })
+    expect(document.activeElement).toBe(logRow)
+
+    fireEvent.keyDown(logRow, { key: "Home" })
+    expect(document.activeElement).toBe(alphaRow)
+  })
+
+  it("moves by a page with PageUp and PageDown", () => {
+    renderWithProviders(<ExplorerPage />)
+
+    const alphaRow = screen.getByText("alpha").closest('[role="row"]')
+    const logRow = screen.getByText("zeta.log").closest('[role="row"]')
+    const scrollContainer = screen.getByTestId("explorer-scroll-container")
+    if (!(alphaRow instanceof HTMLElement) || !(logRow instanceof HTMLElement) || !(scrollContainer instanceof HTMLDivElement)) {
+      throw new Error("expected explorer rows and scroll container")
+    }
+
+    Object.defineProperty(scrollContainer, "clientHeight", {
+      configurable: true,
+      value: 80,
+    })
+
+    alphaRow.focus()
+    fireEvent.keyDown(alphaRow, { key: "PageDown" })
+    expect(document.activeElement).toBe(logRow)
+
+    fireEvent.keyDown(logRow, { key: "PageUp" })
+    expect(document.activeElement).toBe(alphaRow)
+  })
+
+  it("opens the active directory row with Enter", () => {
+    renderWithProviders(<ExplorerPage />)
+
+    const alphaRow = screen.getByText("alpha").closest('[role="row"]')
+    if (!(alphaRow instanceof HTMLElement)) {
+      throw new Error("expected alpha row")
+    }
+
+    alphaRow.focus()
+    fireEvent.keyDown(alphaRow, { key: "Enter" })
+
+    expect(useExplorerStore.getState().currentPath).toBe("folder/alpha")
+  })
+
+  it("does not trigger explorer row shortcuts before the list receives focus", async () => {
+    const mutateAsync = vi.fn().mockResolvedValue(undefined)
+    deleteFileMutationMock.mockReturnValue({
+      isPending: false,
+      isSuccess: false,
+      error: null,
+      variables: undefined,
+      mutateAsync,
+    })
+
+    renderWithProviders(<ExplorerPage />)
+
+    fireEvent.keyDown(window, { key: "Backspace" })
+    fireEvent.keyDown(window, { key: "Delete" })
+    fireEvent.keyDown(window, { key: "Enter" })
+
+    expect(useExplorerStore.getState().currentPath).toBe("folder")
+    expect(screen.queryByRole("dialog")).toBeNull()
+    await waitFor(() => {
+      expect(mutateAsync).not.toHaveBeenCalled()
+    })
+  })
+
+  it("lets arrow keys enter explorer row navigation before a row is focused", async () => {
+    renderWithProviders(<ExplorerPage />)
+
+    const alphaRow = screen.getByText("alpha").closest('[role="row"]')
+    if (!(alphaRow instanceof HTMLElement)) {
+      throw new Error("expected alpha row")
+    }
+
+    fireEvent.keyDown(window, { key: "ArrowDown" })
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(alphaRow)
+    })
+  })
+
+  it("navigates to the parent directory with Backspace from a focused row", () => {
+    renderWithProviders(<ExplorerPage />)
+
+    const fileRow = screen.getByText("file.txt").closest('[role="row"]')
+    if (!(fileRow instanceof HTMLElement)) {
+      throw new Error("expected file row")
+    }
+
+    fileRow.focus()
+    fireEvent.keyDown(fileRow, { key: "Backspace" })
+
+    expect(useExplorerStore.getState().currentPath).toBe("")
+  })
+
+  it("opens row actions with Ctrl+Enter from the active row", async () => {
+    renderWithProviders(<ExplorerPage />)
+
+    const fileRow = screen.getByText("file.txt").closest('[role="row"]')
+    if (!(fileRow instanceof HTMLElement)) {
+      throw new Error("expected file row")
+    }
+
+    fileRow.focus()
+    fireEvent.keyDown(fileRow, { key: "Enter", ctrlKey: true })
+
+    expect(await screen.findByRole("menuitem", { name: "Copy" })).not.toBeNull()
+  })
+
+  it("deletes the active row with Delete after confirmation", async () => {
+    const mutateAsync = vi.fn().mockResolvedValue(undefined)
+    deleteFileMutationMock.mockReturnValue({
+      isPending: false,
+      isSuccess: false,
+      error: null,
+      variables: undefined,
+      mutateAsync,
+    })
+
+    renderWithProviders(<ExplorerPage />)
+
+    const fileRow = screen.getByText("file.txt").closest('[role="row"]')
+    if (!(fileRow instanceof HTMLElement)) {
+      throw new Error("expected file row")
+    }
+
+    fileRow.focus()
+    fireEvent.keyDown(fileRow, { key: "Delete" })
+
+    const dialog = await screen.findByRole("dialog")
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete" }))
+
+    await waitFor(() => {
+      expect(mutateAsync).toHaveBeenCalledWith({
+        remote: "demo",
+        currentPath: "folder",
+        targetPaths: ["folder/file.txt"],
+      })
+    })
+  })
+
+  it("closes explorer transient UI with Escape", () => {
+    renderWithProviders(<ExplorerPage />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Filter" }))
+    expect(screen.getByPlaceholderText("Filter by name")).not.toBeNull()
+
+    const alphaRow = screen.getByText("alpha").closest('[role="row"]')
+    if (!(alphaRow instanceof HTMLElement)) {
+      throw new Error("expected alpha row")
+    }
+
+    alphaRow.focus()
+    fireEvent.keyDown(alphaRow, { key: "Escape" })
+
+    expect(screen.queryByPlaceholderText("Filter by name")).toBeNull()
+  })
+
+  it("returns focus to the row after closing the row action menu with Escape", async () => {
+    renderWithProviders(<ExplorerPage />)
+
+    const fileRow = screen.getByText("file.txt").closest('[role="row"]')
+    if (!(fileRow instanceof HTMLElement)) {
+      throw new Error("expected file row")
+    }
+
+    fileRow.focus()
+    fireEvent.keyDown(fileRow, { key: "Enter", ctrlKey: true })
+    expect(await screen.findByRole("menuitem", { name: "Copy" })).not.toBeNull()
+
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" })
+
+    await waitFor(() => {
+      expect(screen.queryByRole("menuitem", { name: "Copy" })).toBeNull()
+      expect(document.activeElement).toBe(fileRow)
+    })
+  })
+
+  it("uses Escape for explorer UI before minimizing an open media preview", () => {
+    useExplorerUIStore.getState().setMediaPreview({
+      fileName: "clip.mp4",
+      kind: "video",
+      layout: "video-landscape",
+      path: "folder/clip.mp4",
+      url: "http://localhost:5572/%5Bdemo%3A%5D/folder/clip.mp4",
+    })
+
+    renderWithProviders(<ExplorerPage />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Filter" }))
+    expect(screen.getByPlaceholderText("Filter by name")).not.toBeNull()
+
+    const alphaRow = screen.getByText("alpha").closest('[role="row"]')
+    if (!(alphaRow instanceof HTMLElement)) {
+      throw new Error("expected alpha row")
+    }
+
+    alphaRow.focus()
+    fireEvent.keyDown(alphaRow, { key: "Escape" })
+
+    expect(screen.queryByPlaceholderText("Filter by name")).toBeNull()
+    const scopeState = useExplorerUIStore.getState().actionsByScope["http://localhost:5572::basic::gui"]
+    expect(scopeState?.mediaPreview).not.toBeNull()
+    expect(scopeState?.mediaPreviewMinimized).not.toBe(true)
+  })
+
+  it("closes the row menu when switching tabs", async () => {
+    renderWithProviders(<ExplorerPage />)
+
+    act(() => {
+      useExplorerStore.getState().addTab({ remote: "demo", path: "folder" })
+    })
+
+    const fileRow = screen.getByText("file.txt").closest('[role="row"]')
+    if (!(fileRow instanceof HTMLElement)) {
+      throw new Error("expected file row")
+    }
+
+    fileRow.focus()
+    fireEvent.keyDown(fileRow, { key: "Enter", ctrlKey: true })
+    expect(await screen.findByRole("menuitem", { name: "Copy" })).not.toBeNull()
+    expect(fileRow.className).toContain("ring-1")
+
+    const duplicateTab = screen.getAllByText("demo:folder")[1]
+    if (!(duplicateTab instanceof HTMLElement)) {
+      throw new Error("expected duplicate tab")
+    }
+    fireEvent.click(duplicateTab)
+
+    await waitFor(() => {
+      expect(screen.queryByRole("menuitem", { name: "Copy" })).toBeNull()
+    })
+  })
+
+  it("closes the new folder input with Escape while typing", () => {
+    renderWithProviders(<ExplorerPage />)
+
+    fireEvent.click(screen.getByRole("button", { name: "New Folder" }))
+    const input = screen.getByRole("textbox")
+    fireEvent.change(input, { target: { value: "draft" } })
+    fireEvent.keyDown(input, { key: "Escape" })
+
+    expect(screen.queryByDisplayValue("draft")).toBeNull()
+  })
+
+  it("closes the filter input with Escape while typing", () => {
+    renderWithProviders(<ExplorerPage />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Filter" }))
+    const input = screen.getByPlaceholderText("Filter by name")
+    fireEvent.change(input, { target: { value: "alp" } })
+    fireEvent.keyDown(input, { key: "Escape" })
+
+    expect(screen.queryByPlaceholderText("Filter by name")).toBeNull()
   })
 })

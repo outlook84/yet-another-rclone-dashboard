@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp, X } from "lucide-react"
-import { useEffect } from "react"
+import { useEffect, useRef } from "react"
 import { useExplorerUIStore } from "@/features/explorer/store/explorer-ui-store"
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { Button } from "@/shared/components/ui/button"
@@ -70,6 +70,7 @@ function GlobalUploadCenter() {
   const cancelTask = useUploadCenterStore((state) => state.cancelTask)
   const removeTask = useUploadCenterStore((state) => state.removeTask)
   const clearCompletedTasks = useUploadCenterStore((state) => state.clearCompletedTasks)
+  const panelRef = useRef<HTMLDivElement | null>(null)
   const activeCount = tasks.filter((task) => task.status === "uploading").length
   const completedCount = tasks.filter((task) => task.status === "success").length
   const bottomOffset =
@@ -84,6 +85,38 @@ function GlobalUploadCenter() {
     bottom: `${bottomOffset}px`,
     right: `${UPLOAD_CENTER_MARGIN}px`,
   }
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented) {
+        return
+      }
+
+      const target = event.target
+      if (
+        target instanceof HTMLElement &&
+        (
+          target.isContentEditable ||
+          ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName) ||
+          target.closest("[role='dialog'], [role='menu']")
+        )
+      ) {
+        return
+      }
+
+      if (event.key !== "Escape" || collapsed || tasks.length === 0) {
+        return
+      }
+
+      event.preventDefault()
+      collapse()
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
+    }
+  }, [collapse, collapsed, tasks.length])
 
   useEffect(() => {
     if (!collapsed && mediaPreview && !compactMediaPreview && !mediaPreviewMinimized) {
@@ -120,7 +153,11 @@ function GlobalUploadCenter() {
   }
 
   return (
-    <div className="fixed z-40 w-[min(420px,calc(100vw-2rem))]" style={floatingPositionStyle}>
+    <div
+      ref={panelRef}
+      className="fixed z-40 w-[min(420px,calc(100vw-2rem))]"
+      style={floatingPositionStyle}
+    >
       <Card className="border-[color:var(--app-border)] shadow-[0_20px_48px_rgba(0,0,0,0.16)]">
         <CardContent className="p-0">
           <div className="flex items-center justify-between gap-3 border-b border-[color:var(--app-border)] px-4 py-3">
