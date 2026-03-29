@@ -20,6 +20,7 @@ describe("useSavedConnectionsStore", () => {
         password: "secret",
       },
       syncEnabled: true,
+      uploadEnabled: false,
     })
 
     const state = useSavedConnectionsStore.getState()
@@ -29,6 +30,7 @@ describe("useSavedConnectionsStore", () => {
       name: "demo.example.com/rc (alice)",
       baseUrl: "https://demo.example.com/rc",
       syncEnabled: true,
+      uploadEnabled: false,
     })
     expect(state.profiles[0]?.updatedAt).toEqual(expect.any(String))
   })
@@ -46,6 +48,7 @@ describe("useSavedConnectionsStore", () => {
         password: "",
       },
       syncEnabled: false,
+      uploadEnabled: false,
     })
 
     useSavedConnectionsStore.getState().saveProfile({
@@ -58,6 +61,7 @@ describe("useSavedConnectionsStore", () => {
         password: "",
       },
       syncEnabled: true,
+      uploadEnabled: true,
     })
 
     expect(useSavedConnectionsStore.getState().profiles).toHaveLength(1)
@@ -66,6 +70,7 @@ describe("useSavedConnectionsStore", () => {
       name: "Updated Local",
       baseUrl: "http://localhost:5573",
       syncEnabled: true,
+      uploadEnabled: true,
     })
 
     useSavedConnectionsStore.getState().deleteProfile(profileId)

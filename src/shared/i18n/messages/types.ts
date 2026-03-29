@@ -99,6 +99,10 @@ type AppMessages = {
     syncEnabledDescription: () => string
     syncRiskTitle: () => string
     syncRiskMessage: () => string
+    uploadEnabled: () => string
+    uploadEnabledDescription: () => string
+    uploadRiskTitle: () => string
+    uploadRiskMessage: () => string
   }
   overview: {
     title: () => string
@@ -362,6 +366,8 @@ type AppMessages = {
     uploadCompleted: () => string
     uploadCompletedMessage: () => string
     uploadFailed: () => string
+    uploadDisabled: () => string
+    uploadDisabledMessage: () => string
     deleteFileFailed: () => string
     deleteDirectoryFailed: () => string
     copyStarted: () => string

@@ -9,6 +9,7 @@ interface SavedConnectionProfile {
   authMode: AuthMode
   basicCredentials: BasicCredentials
   syncEnabled: boolean
+  uploadEnabled: boolean
   updatedAt: string
 }
 
@@ -45,6 +46,7 @@ const useSavedConnectionsStore = create<SavedConnectionsState>()(
           authMode: profile.authMode,
           basicCredentials: profile.basicCredentials,
           syncEnabled: profile.syncEnabled,
+          uploadEnabled: profile.uploadEnabled,
           updatedAt: new Date().toISOString(),
         }
 

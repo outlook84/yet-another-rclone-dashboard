@@ -95,6 +95,13 @@ function ConnectPage() {
     profileId: null,
     value: false,
   })
+  const [uploadEnabledDraftState, setUploadEnabledDraftState] = useState<{
+    profileId: string | null
+    value: boolean
+  }>({
+    profileId: null,
+    value: false,
+  })
   const selectedProfile = useMemo(
     () => profiles.find((profile) => profile.id === selectedProfileId) ?? null,
     [profiles, selectedProfileId],
@@ -103,6 +110,10 @@ function ConnectPage() {
     syncEnabledDraftState.profileId === (selectedProfile?.id ?? null)
       ? syncEnabledDraftState.value
       : (selectedProfile?.syncEnabled ?? false)
+  const uploadEnabledDraft =
+    uploadEnabledDraftState.profileId === (selectedProfile?.id ?? null)
+      ? uploadEnabledDraftState.value
+      : (selectedProfile?.uploadEnabled ?? false)
 
   const validateConnection = useMutation({
     mutationFn: async (params?: { baseUrl: string; authMode: string; basicCredentials?: typeof basicCredentials }) => {
@@ -153,6 +164,7 @@ function ConnectPage() {
           authMode: nextAuthMode,
           basicCredentials: nextBasicCredentials,
           syncEnabled: syncEnabledDraft,
+          uploadEnabled: uploadEnabledDraft,
         })
       }
       applyConnection({
@@ -211,6 +223,7 @@ function ConnectPage() {
       authMode,
       basicCredentials,
       syncEnabled: syncEnabledDraft,
+      uploadEnabled: uploadEnabledDraft,
     })
 
     notify({
@@ -330,6 +343,7 @@ function ConnectPage() {
 
               <label className="flex items-start gap-3 rounded-[12px] border border-[color:var(--app-border)] bg-[color:var(--app-panel-strong)] px-3 py-3">
                 <Checkbox
+                  aria-label={messages.connect.syncEnabled()}
                   checked={syncEnabledDraft}
                   onChange={async (event) => {
                     const nextChecked = event.currentTarget.checked
@@ -354,6 +368,36 @@ function ConnectPage() {
                 <span className="flex min-w-0 flex-col gap-1">
                   <span className="text-[13px] font-bold text-[color:var(--app-text)]">{messages.connect.syncEnabled()}</span>
                   <span className="app-help-text">{messages.connect.syncEnabledDescription()}</span>
+                </span>
+              </label>
+
+              <label className="flex items-start gap-3 rounded-[12px] border border-[color:var(--app-border)] bg-[color:var(--app-panel-strong)] px-3 py-3">
+                <Checkbox
+                  aria-label={messages.connect.uploadEnabled()}
+                  checked={uploadEnabledDraft}
+                  onChange={async (event) => {
+                    const nextChecked = event.currentTarget.checked
+                    if (nextChecked && !uploadEnabledDraft) {
+                      const confirmed = await confirm({
+                        title: messages.connect.uploadRiskTitle(),
+                        message: messages.connect.uploadRiskMessage(),
+                        confirmLabel: messages.common.confirm(),
+                      })
+
+                      if (!confirmed) {
+                        return
+                      }
+                    }
+
+                    setUploadEnabledDraftState({
+                      profileId: selectedProfile?.id ?? null,
+                      value: nextChecked,
+                    })
+                  }}
+                />
+                <span className="flex min-w-0 flex-col gap-1">
+                  <span className="text-[13px] font-bold text-[color:var(--app-text)]">{messages.connect.uploadEnabled()}</span>
+                  <span className="app-help-text">{messages.connect.uploadEnabledDescription()}</span>
                 </span>
               </label>
 

@@ -27,6 +27,10 @@ const connectMessages: MessageSet<AppMessages["connect"]> = {
     syncEnabledDescription: () => "Allow destructive directory sync actions for current profile only.",
     syncRiskTitle: () => "Enable Sync",
     syncRiskMessage: () => "Sync may overwrite or remove content in the destination directory. Only enable this for profiles where you understand the risk.",
+    uploadEnabled: () => "Enable Upload",
+    uploadEnabledDescription: () => "Allow browser-based local file uploads for current profile only.",
+    uploadRiskTitle: () => "Enable Upload",
+    uploadRiskMessage: () => "Browser uploads may fail for large files or when the request path is limited by a proxy or CDN. Only enable this for profiles where you accept that limitation.",
   },
   "zh-CN": {
     title: () => "连接",
@@ -54,6 +58,10 @@ const connectMessages: MessageSet<AppMessages["connect"]> = {
     syncEnabledDescription: () => "为当前 profile 开放可能带破坏性的目录同步操作。",
     syncRiskTitle: () => "启用同步",
     syncRiskMessage: () => "同步可能会覆盖或删除目标目录中的内容。只有在你明确理解风险时才为此 profile 启用。",
+    uploadEnabled: () => "启用上传",
+    uploadEnabledDescription: () => "为当前 profile 开放基于浏览器的本地文件上传。",
+    uploadRiskTitle: () => "启用上传",
+    uploadRiskMessage: () => "浏览器上传在大文件场景下可能失败，也可能被代理或 CDN 的请求体限制拦截。只有在你接受这一限制时才为此 profile 启用。",
   },
 }
 

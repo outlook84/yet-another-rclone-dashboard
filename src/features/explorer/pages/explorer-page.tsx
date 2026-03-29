@@ -441,6 +441,10 @@ function ExplorerPage() {
     () => profiles.find((profile) => profile.id === selectedProfileId)?.syncEnabled ?? false,
     [profiles, selectedProfileId],
   )
+  const uploadEnabled = useMemo(
+    () => profiles.find((profile) => profile.id === selectedProfileId)?.uploadEnabled ?? false,
+    [profiles, selectedProfileId],
+  )
   const selectedPathSet = useMemo(() => new Set(selectedPaths), [selectedPaths])
   const allVisibleSelected =
     visibleItems.length > 0 &&
@@ -1001,14 +1005,16 @@ function ExplorerPage() {
                     className="hidden"
                     onChange={handleUploadFileSelection}
                   />
-                  <UIButton
-                    variant="toolbar"
-                    size="toolbar"
-                    disabled={!currentRemote}
-                    onClick={() => uploadInputRef.current?.click()}
-                  >
-                    {messages.explorer.upload()}
-                  </UIButton>
+                  {uploadEnabled ? (
+                    <UIButton
+                      variant="toolbar"
+                      size="toolbar"
+                      disabled={!currentRemote}
+                      onClick={() => uploadInputRef.current?.click()}
+                    >
+                      {messages.explorer.upload()}
+                    </UIButton>
+                  ) : null}
                   <UIButton
                     variant={showNewDirectoryInput ? "default" : "toolbar"}
                     size="toolbar"

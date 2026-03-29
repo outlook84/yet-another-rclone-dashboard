@@ -160,6 +160,7 @@ describe("ExplorerPage", () => {
           basicCredentials: { username: "gui", password: "secret" },
           updatedAt: "2026-03-27T10:00:00.000Z",
           syncEnabled: true,
+          uploadEnabled: false,
         },
       ],
       selectedProfileId: "demo-profile",
@@ -347,6 +348,7 @@ describe("ExplorerPage", () => {
           basicCredentials: { username: "", password: "" },
           updatedAt: "2026-03-27T10:00:00.000Z",
           syncEnabled: true,
+          uploadEnabled: false,
         },
       ],
       selectedProfileId: "demo-profile",
@@ -609,6 +611,7 @@ describe("ExplorerPage", () => {
           basicCredentials: { username: "", password: "" },
           updatedAt: "2026-03-27T10:00:00.000Z",
           syncEnabled: true,
+          uploadEnabled: false,
         },
       ],
       selectedProfileId: "demo-profile",
@@ -746,6 +749,7 @@ describe("ExplorerPage", () => {
           basicCredentials: { username: "", password: "" },
           updatedAt: "2026-03-27T10:00:00.000Z",
           syncEnabled: true,
+          uploadEnabled: false,
         },
       ],
       selectedProfileId: "demo-profile",
@@ -810,6 +814,7 @@ describe("ExplorerPage", () => {
           basicCredentials: { username: "", password: "" },
           updatedAt: "2026-03-27T10:00:00.000Z",
           syncEnabled: true,
+          uploadEnabled: false,
         },
       ],
       selectedProfileId: "demo-profile",
@@ -859,6 +864,7 @@ describe("ExplorerPage", () => {
           basicCredentials: { username: "", password: "" },
           updatedAt: "2026-03-27T10:00:00.000Z",
           syncEnabled: true,
+          uploadEnabled: false,
         },
       ],
       selectedProfileId: "demo-profile",
@@ -909,6 +915,7 @@ describe("ExplorerPage", () => {
           basicCredentials: { username: "", password: "" },
           updatedAt: "2026-03-27T10:00:00.000Z",
           syncEnabled: true,
+          uploadEnabled: false,
         },
       ],
       selectedProfileId: "demo-profile",
@@ -942,6 +949,22 @@ describe("ExplorerPage", () => {
   })
 
   it("starts a managed upload with the current explorer location after file selection", async () => {
+    useSavedConnectionsStore.setState({
+      profiles: [
+        {
+          id: "demo-profile",
+          name: "Demo",
+          baseUrl: "http://localhost:5572",
+          authMode: "basic",
+          basicCredentials: { username: "gui", password: "secret" },
+          updatedAt: "2026-03-27T10:00:00.000Z",
+          syncEnabled: true,
+          uploadEnabled: true,
+        },
+      ],
+      selectedProfileId: "demo-profile",
+    })
+
     renderWithProviders(<ExplorerPage />)
 
     const inputClickSpy = vi.spyOn(HTMLInputElement.prototype, "click")
@@ -977,6 +1000,12 @@ describe("ExplorerPage", () => {
     expect(uploadInput.value).toBe("")
   })
 
+  it("hides the upload action until the profile explicitly enables it", () => {
+    renderWithProviders(<ExplorerPage />)
+
+    expect(screen.queryByRole("button", { name: "Upload" })).toBeNull()
+  })
+
   it("hides bulk download actions on compact mobile toolbars", () => {
     setMatchMedia({
       "(max-width: 64em)": true,
@@ -1004,6 +1033,7 @@ describe("ExplorerPage", () => {
           basicCredentials: { username: "", password: "" },
           updatedAt: "2026-03-27T10:00:00.000Z",
           syncEnabled: true,
+          uploadEnabled: false,
         },
       ],
       selectedProfileId: "demo-profile",

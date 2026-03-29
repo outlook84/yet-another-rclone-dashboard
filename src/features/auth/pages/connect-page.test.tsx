@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, screen, waitFor } from "@testing-library/react"
+import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ConnectPage } from "@/features/auth/pages/connect-page"
 import { useSavedConnectionsStore } from "@/features/auth/store/saved-connections-store"
@@ -184,6 +184,7 @@ describe("ConnectPage", () => {
             password: "secret",
           },
           syncEnabled: true,
+          uploadEnabled: false,
           updatedAt: "2026-03-29T00:00:00.000Z",
         },
       ],
@@ -222,6 +223,7 @@ describe("ConnectPage", () => {
         password: "secret",
       },
       syncEnabled: true,
+      uploadEnabled: false,
     })
   })
 
@@ -238,6 +240,7 @@ describe("ConnectPage", () => {
             password: "secret",
           },
           syncEnabled: true,
+          uploadEnabled: false,
           updatedAt: "2026-03-29T00:00:00.000Z",
         },
       ],
@@ -270,6 +273,33 @@ describe("ConnectPage", () => {
       id: "profile-2",
       name: "Office Rclone",
       authMode: "none",
+      uploadEnabled: false,
+    })
+  })
+
+  it("requires confirmation before enabling uploads and saves the flag", async () => {
+    renderWithProviders(<ConnectPage />)
+
+    const uploadToggle = screen.getByRole("checkbox", { name: "Enable Upload" })
+    fireEvent.click(uploadToggle)
+
+    const dialog = await screen.findByRole("dialog")
+    expect(
+      within(dialog).getByText(
+        "Browser uploads may fail for large files or when the request path is limited by a proxy or CDN. Only enable this for profiles where you accept that limitation.",
+      ),
+    ).not.toBeNull()
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Confirm" }))
+
+    await waitFor(() => {
+      expect((uploadToggle as HTMLInputElement).checked).toBe(true)
+    })
+
+    fireEvent.click(screen.getByRole("button", { name: "Save Current" }))
+
+    expect(useSavedConnectionsStore.getState().profiles[0]).toMatchObject({
+      uploadEnabled: true,
     })
   })
 
