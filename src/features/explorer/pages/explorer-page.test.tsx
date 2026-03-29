@@ -545,6 +545,20 @@ describe("ExplorerPage", () => {
     expect(rowTexts[3]).toContain("file.txt")
   })
 
+  it("opens a directory when its icon is clicked", () => {
+    renderWithProviders(<ExplorerPage />)
+
+    const directoryButton = screen.getByRole("button", { name: "alpha" })
+    const directoryIcon = directoryButton.querySelector("svg")
+    if (!directoryIcon) {
+      throw new Error("directory icon not found")
+    }
+
+    fireEvent.click(directoryIcon)
+
+    expect(useExplorerStore.getState().currentPath).toBe("folder/alpha")
+  })
+
   it("formats file size for display", () => {
     renderWithProviders(<ExplorerPage />)
 

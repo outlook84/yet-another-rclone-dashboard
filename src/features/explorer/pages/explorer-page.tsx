@@ -1728,13 +1728,7 @@ function ExplorerPage() {
                                   </DropdownMenuContent>
                                 </DropdownMenu>
                               )}
-                              <div style={{ minWidth: 0, flex: 1 }}>
-                                <div className="flex min-w-0 items-center gap-1">
-                                  {item.type === "dir" ? (
-                                    <IconFolderFilled size={14} stroke={1.8} className="shrink-0 text-[color:var(--app-accent-strong)]" />
-                                  ) : (
-                                    <IconFile size={14} stroke={1.8} className="shrink-0 text-[color:var(--app-text-soft)]" />
-                                  )}
+                                <div style={{ minWidth: 0, flex: 1 }}>
                                   {item.type === "dir" ? (
                                     <button
                                       title={item.name}
@@ -1743,22 +1737,25 @@ function ExplorerPage() {
                                         event.stopPropagation()
                                         setCurrentPath(joinPath(currentPath, item.name))
                                       }}
-                                      className="block min-w-0 text-left transition-colors hover:text-[color:var(--app-accent)]"
+                                      className="flex min-w-0 items-center gap-1 text-left transition-colors hover:text-[color:var(--app-accent)]"
                                     >
+                                      <IconFolderFilled size={14} stroke={1.8} className="shrink-0 text-[color:var(--app-accent-strong)]" />
                                       <span className="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-normal leading-5 text-[color:var(--app-text)]">
                                         {item.name}
                                       </span>
                                     </button>
                                   ) : (
-                                    <div
-                                      title={item.name}
-                                      className="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-normal leading-5 text-[color:var(--app-text)]"
-                                    >
-                                      {item.name}
+                                    <div className="flex min-w-0 items-center gap-1">
+                                      <IconFile size={14} stroke={1.8} className="shrink-0 text-[color:var(--app-text-soft)]" />
+                                      <div
+                                        title={item.name}
+                                        className="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-normal leading-5 text-[color:var(--app-text)]"
+                                      >
+                                        {item.name}
+                                      </div>
                                     </div>
                                   )}
                                 </div>
-                              </div>
                             </div>
                           </div>
                           {/* Size cell */}
