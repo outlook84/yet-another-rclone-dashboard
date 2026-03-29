@@ -9,6 +9,7 @@ interface ConnectionState {
   basicCredentials: BasicCredentials
   lastValidatedAt: string | null
   lastServerInfo: ServerInfo | null
+  validationRevision: number
   applyConnection: (connection: {
     baseUrl: string
     authMode: AuthMode
@@ -32,6 +33,7 @@ const useConnectionStore = create<ConnectionState>()(
       },
       lastValidatedAt: null,
       lastServerInfo: null,
+      validationRevision: 0,
       applyConnection: (connection) =>
         set({
           baseUrl: connection.baseUrl,
@@ -45,10 +47,11 @@ const useConnectionStore = create<ConnectionState>()(
       setBasicCredentials: (basicCredentials) =>
         set({ basicCredentials, lastValidatedAt: null, lastServerInfo: null }),
       markValidated: (lastServerInfo) =>
-        set({
+        set((state) => ({
           lastServerInfo,
           lastValidatedAt: new Date().toISOString(),
-        }),
+          validationRevision: state.validationRevision + 1,
+        })),
       clearValidation: () =>
         set({
           lastValidatedAt: null,

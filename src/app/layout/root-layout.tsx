@@ -17,6 +17,8 @@ import {
   X,
 } from "lucide-react"
 import { useStatsPollingStore } from "@/features/jobs/store/stats-polling-store"
+import { MediaPreviewOverlay } from "@/features/explorer/components/media-preview-overlay"
+import { useExplorerUIStore } from "@/features/explorer/store/explorer-ui-store"
 import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
 import { NativeSelect } from "@/shared/components/ui/native-select"
@@ -244,12 +246,15 @@ function RootLayout() {
   const connectionScope = useConnectionScope()
   const setLastVisitedRoute = useLastVisitedRouteStore((state) => state.setLastVisitedRoute)
   const getLastVisitedRoute = useLastVisitedRouteStore((state) => state.getLastVisitedRoute)
+  const clearAllMediaPreviews = useExplorerUIStore((state) => state.clearAllMediaPreviews)
   const isValidated = Boolean(lastValidatedAt && lastServerInfo)
   const requiresConnection = location.pathname !== "/"
   const activeStatsFetches = useIsFetching({
     queryKey: queryKeys.combinedStats(connectionScope),
   })
   const hasPrefetchedRoutesRef = useRef(false)
+  const previousConnectionScopeRef = useRef(connectionScope)
+  const previousIsValidatedRef = useRef(isValidated)
   const appVersion = packageJson.version
   const statsPollingOptions = useMemo(
     () => [
@@ -320,6 +325,20 @@ function RootLayout() {
 
     setLastVisitedRoute(connectionScope, location.pathname)
   }, [connectionScope, isValidated, location.pathname, setLastVisitedRoute])
+
+  useEffect(() => {
+    if (previousConnectionScopeRef.current !== connectionScope) {
+      previousConnectionScopeRef.current = connectionScope
+      clearAllMediaPreviews()
+    }
+  }, [clearAllMediaPreviews, connectionScope])
+
+  useEffect(() => {
+    if (previousIsValidatedRef.current && !isValidated) {
+      clearAllMediaPreviews()
+    }
+    previousIsValidatedRef.current = isValidated
+  }, [clearAllMediaPreviews, isValidated])
 
   useEffect(() => {
     if (!opened) {
@@ -600,6 +619,8 @@ function RootLayout() {
           </div>
         </main>
       </div>
+
+      <MediaPreviewOverlay />
 
       {opened ? (
         <div className="fixed inset-0 z-50 md:hidden">

@@ -9,6 +9,7 @@ function AppApiProvider({ children }: PropsWithChildren) {
   const baseUrl = useConnectionStore((state) => state.baseUrl)
   const authMode = useConnectionStore((state) => state.authMode)
   const basicCredentials = useConnectionStore((state) => state.basicCredentials)
+  const validationRevision = useConnectionStore((state) => state.validationRevision)
 
   const client = useMemo(
     () =>
@@ -17,7 +18,7 @@ function AppApiProvider({ children }: PropsWithChildren) {
         authMode,
         basicCredentials,
       }),
-    [authMode, baseUrl, basicCredentials],
+    [authMode, baseUrl, basicCredentials, validationRevision],
   )
 
   return <AppApiContext.Provider value={client}>{children}</AppApiContext.Provider>

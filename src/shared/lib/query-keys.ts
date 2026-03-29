@@ -6,6 +6,7 @@ export const queryKeys = {
   serverInfo: (connectionScope: string) => [...scopeKey(connectionScope), "session", "server-info"] as const,
   remotes: (connectionScope: string) => [...scopeKey(connectionScope), "remotes"] as const,
   remote: (connectionScope: string, name: string) => [...scopeKey(connectionScope), "remotes", name] as const,
+  rcServe: (connectionScope: string) => [...scopeKey(connectionScope), "rc-serve"] as const,
   explorer: (connectionScope: string, remote: string, path: string) =>
     [...scopeKey(connectionScope), "explorer", remote, path] as const,
   jobs: (connectionScope: string) => [...scopeKey(connectionScope), "jobs"] as const,

@@ -11,4 +11,8 @@ describe("queryKeys", () => {
       "path/to/file",
     ])
   })
+
+  it("creates a stable rc-serve key", () => {
+    expect(queryKeys.rcServe("scope-a")).toEqual(["scope", "scope-a", "rc-serve"])
+  })
 })

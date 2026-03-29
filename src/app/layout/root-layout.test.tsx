@@ -9,6 +9,7 @@ import {
 } from "react-router-dom"
 import { RootLayout } from "@/app/layout/root-layout"
 import { AppProviders } from "@/app/providers/app-providers"
+import { useExplorerUIStore } from "@/features/explorer/store/explorer-ui-store"
 import { useConnectionStore } from "@/shared/store/connection-store"
 import { useLastVisitedRouteStore } from "@/shared/store/last-visited-route-store"
 
@@ -53,6 +54,17 @@ function renderRootLayout(initialEntries: Array<string | { pathname: string; sta
   )
 }
 
+function seedMediaPreview() {
+  useExplorerUIStore.getState().setScope("http://localhost:5572::basic::gui")
+  useExplorerUIStore.getState().setMediaPreview({
+    fileName: "clip.mp4",
+    kind: "video",
+    layout: "video-landscape",
+    path: "folder/clip.mp4",
+    url: "http://localhost:5572/%5Bdemo%3A%5D/folder/clip.mp4",
+  })
+}
+
 describe("RootLayout", () => {
   afterEach(() => {
     cleanup()
@@ -84,6 +96,13 @@ describe("RootLayout", () => {
       routeByScope: {
         "http://localhost:5572::basic::gui": "/overview",
       },
+    })
+    useExplorerUIStore.setState({
+      scopeKey: null,
+      actionsByScope: {},
+      inspectDirectoryPaths: {},
+      selectionModes: {},
+      selectedPathsByTab: {},
     })
   })
 
@@ -278,6 +297,62 @@ describe("RootLayout", () => {
     })
 
     expect(view.container.querySelector(".app-stats-refresh-icon--spin-fast")).toBeNull()
+  })
+
+  it("keeps the media preview mounted while switching routes", async () => {
+    seedMediaPreview()
+
+    renderRootLayout(["/overview"])
+
+    expect(screen.getByRole("button", { name: "clip.mp4" })).not.toBeNull()
+    expect(document.querySelector("video")?.getAttribute("src")).toBe(
+      "http://localhost:5572/%5Bdemo%3A%5D/folder/clip.mp4",
+    )
+
+    fireEvent.click(screen.getByRole("link", { name: "Connect RC link" }))
+
+    await waitFor(() => {
+      expect(screen.getByText("Connect Screen")).not.toBeNull()
+    })
+
+    expect(screen.getByRole("button", { name: "clip.mp4" })).not.toBeNull()
+    expect(document.querySelector("video")?.getAttribute("src")).toBe(
+      "http://localhost:5572/%5Bdemo%3A%5D/folder/clip.mp4",
+    )
+  })
+
+  it("clears the media preview when connection scope changes outside explorer", async () => {
+    seedMediaPreview()
+
+    renderRootLayout(["/overview"])
+
+    expect(screen.getByRole("button", { name: "clip.mp4" })).not.toBeNull()
+
+    act(() => {
+      useConnectionStore.getState().setAuthMode("none")
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "clip.mp4" })).toBeNull()
+    })
+    expect(useExplorerUIStore.getState().actionsByScope["http://localhost:5572::basic::gui"]?.mediaPreview).toBeNull()
+  })
+
+  it("clears the media preview when validation is lost without a scope change", async () => {
+    seedMediaPreview()
+
+    renderRootLayout(["/overview"])
+
+    expect(screen.getByRole("button", { name: "clip.mp4" })).not.toBeNull()
+
+    act(() => {
+      useConnectionStore.getState().clearValidation()
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: "clip.mp4" })).toBeNull()
+    })
+    expect(useExplorerUIStore.getState().actionsByScope["http://localhost:5572::basic::gui"]?.mediaPreview).toBeNull()
   })
 
   it("keeps the stats spinner visible for the hold window when fetching is already active on mount", () => {

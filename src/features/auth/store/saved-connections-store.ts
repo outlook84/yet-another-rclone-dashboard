@@ -77,4 +77,5 @@ const useSavedConnectionsStore = create<SavedConnectionsState>()(
 )
 
 export { useSavedConnectionsStore }
+export { createProfileName }
 export type { SavedConnectionProfile }

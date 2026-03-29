@@ -28,6 +28,7 @@ describe("useConnectionStore", () => {
       },
       lastValidatedAt: null,
       lastServerInfo: null,
+      validationRevision: 0,
     })
   })
 
@@ -101,5 +102,17 @@ describe("useConnectionStore", () => {
 
     expect(useConnectionStore.getState().lastValidatedAt).toBeNull()
     expect(useConnectionStore.getState().lastServerInfo).toBeNull()
+  })
+
+  it("increments the validation revision when validation succeeds", async () => {
+    const { useConnectionStore } = await import("@/shared/store/connection-store")
+
+    expect(useConnectionStore.getState().validationRevision).toBe(0)
+
+    useConnectionStore.getState().markValidated(serverInfo)
+    expect(useConnectionStore.getState().validationRevision).toBe(1)
+
+    useConnectionStore.getState().markValidated(serverInfo)
+    expect(useConnectionStore.getState().validationRevision).toBe(2)
   })
 })

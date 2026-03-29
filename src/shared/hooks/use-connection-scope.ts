@@ -1,5 +1,16 @@
 import { useMemo } from "react"
+import type { AuthMode } from "@/shared/api/contracts/auth"
 import { useConnectionStore } from "@/shared/store/connection-store"
+
+function buildConnectionScope(input: {
+  baseUrl: string
+  authMode: AuthMode
+  username: string
+  apiBaseUrl?: string | null
+}) {
+  const endpoint = input.apiBaseUrl ?? input.baseUrl
+  return `${endpoint}::${input.authMode}::${input.authMode === "basic" ? input.username : "anonymous"}`
+}
 
 function useConnectionScope() {
   const baseUrl = useConnectionStore((state) => state.baseUrl)
@@ -8,9 +19,13 @@ function useConnectionScope() {
   const apiBaseUrl = useConnectionStore((state) => state.lastServerInfo?.apiBaseUrl)
 
   return useMemo(() => {
-    const endpoint = apiBaseUrl ?? baseUrl
-    return `${endpoint}::${authMode}::${authMode === "basic" ? username : "anonymous"}`
+    return buildConnectionScope({
+      baseUrl,
+      authMode,
+      username,
+      apiBaseUrl,
+    })
   }, [apiBaseUrl, authMode, baseUrl, username])
 }
 
-export { useConnectionScope }
+export { buildConnectionScope, useConnectionScope }

@@ -15,6 +15,7 @@ import { useExplorerMkdirMutation } from "@/features/explorer/api/use-explorer-m
 import { useExplorerMoveDirMutation } from "@/features/explorer/api/use-explorer-move-dir-mutation"
 import { useExplorerMoveFileMutation } from "@/features/explorer/api/use-explorer-move-file-mutation"
 import { useExplorerPublicLinkMutation } from "@/features/explorer/api/use-explorer-public-link-mutation"
+import { useRcServeAvailabilityQuery } from "@/features/explorer/api/use-rc-serve-availability-query"
 import { useExplorerSizeQuery } from "@/features/explorer/api/use-explorer-size-query"
 import { useExplorerUsageQuery } from "@/features/explorer/api/use-explorer-usage-query"
 import { useExplorerBatchMutation } from "@/features/explorer/api/use-explorer-batch-mutation"
@@ -25,6 +26,7 @@ import {
   nextSortMode,
   sortLabel,
 } from "@/features/explorer/lib/display-utils"
+import { buildRcServeUrl } from "@/features/explorer/lib/rc-serve-url"
 import { joinPath, normalizePath, parentPath } from "@/features/explorer/lib/path-utils"
 import { useExplorerStore } from "@/features/explorer/store/explorer-store"
 import { useSavedConnectionsStore } from "@/features/auth/store/saved-connections-store"
@@ -50,9 +52,12 @@ import { useI18n } from "@/shared/i18n"
 import { inputExamples, resolveInputExample } from "@/shared/i18n/input-examples"
 import { useMediaQuery } from "@/shared/hooks/use-media-query"
 import { cn } from "@/shared/lib/cn"
+import { useConnectionStore } from "@/shared/store/connection-store"
 import { usePageChromeStore } from "@/shared/store/page-chrome-store"
 import {
   useExplorerUIStore,
+  type MediaPreviewLayout,
+  type MediaPreviewState,
   type PendingTransferAction,
   type PendingTransferItem,
 } from "@/features/explorer/store/explorer-ui-store"
@@ -63,6 +68,48 @@ type PublicLinkState = {
 } | null
 
 const EMPTY_SELECTED_PATHS: string[] = []
+
+const IMAGE_EXTENSIONS = new Set(["avif", "bmp", "gif", "jpeg", "jpg", "png", "svg", "webp"])
+const AUDIO_EXTENSIONS = new Set(["aac", "flac", "m4a", "mp3", "oga", "ogg", "wav", "weba"])
+const VIDEO_EXTENSIONS = new Set(["m4v", "mov", "mp4", "ogv", "webm"])
+function getFileExtension(name: string) {
+  const extension = name.split(".").pop()
+  return extension ? extension.toLowerCase() : ""
+}
+
+function getPreviewKind(item: PendingTransferItem): NonNullable<MediaPreviewState>["kind"] | null {
+  const mimeType = item.mimeType?.toLowerCase()
+  if (mimeType?.startsWith("image/")) {
+    return "image"
+  }
+  if (mimeType?.startsWith("audio/")) {
+    return "audio"
+  }
+  if (mimeType?.startsWith("video/")) {
+    return "video"
+  }
+
+  const extension = getFileExtension(item.itemName)
+  if (IMAGE_EXTENSIONS.has(extension)) {
+    return "image"
+  }
+  if (AUDIO_EXTENSIONS.has(extension)) {
+    return "audio"
+  }
+  if (VIDEO_EXTENSIONS.has(extension)) {
+    return "video"
+  }
+
+  return null
+}
+
+function getDefaultMediaPreviewLayout(kind: NonNullable<MediaPreviewState>["kind"]): MediaPreviewLayout {
+  if (kind === "audio") {
+    return "audio"
+  }
+
+  return kind === "image" ? "image-landscape" : "video-landscape"
+}
 
 function ExplorerPage() {
   const { locale, messages } = useI18n()
@@ -87,6 +134,8 @@ function ExplorerPage() {
     state.scopeKey ? state.actionsByScope[state.scopeKey]?.pendingRenameAction : null,
   )
   const setPendingRenameAction = useExplorerUIStore((state) => state.setPendingRenameAction)
+  const authMode = useConnectionStore((state) => state.authMode)
+  const apiBaseUrl = useConnectionStore((state) => state.lastServerInfo?.apiBaseUrl ?? state.baseUrl)
   const [publicLink, setPublicLink] = useState<PublicLinkState>(null)
   const [filterText, setFilterText] = useState("")
   const [locationDraft, setLocationDraft] = useState("")
@@ -99,6 +148,7 @@ function ExplorerPage() {
   const setInspectDirectoryPaths = useExplorerUIStore((state) => state.setInspectDirectoryPaths)
   const setSelectionModes = useExplorerUIStore((state) => state.setSelectionModes)
   const setSelectedPathsByTab = useExplorerUIStore((state) => state.setSelectedPathsByTab)
+  const setMediaPreview = useExplorerUIStore((state) => state.setMediaPreview)
   const profiles = useSavedConnectionsStore((state) => state.profiles)
   const selectedProfileId = useSavedConnectionsStore((state) => state.selectedProfileId)
   const sortMode = useMemo(
@@ -113,6 +163,7 @@ function ExplorerPage() {
   const fsInfoQuery = useExplorerFsInfoQuery(currentRemote)
   const supportsAbout = Boolean(fsInfoQuery.data?.features?.About)
   const usageQuery = useExplorerUsageQuery(currentRemote, supportsAbout)
+  const rcServeAvailabilityQuery = useRcServeAvailabilityQuery()
   const inspectDirectorySizeQuery = useExplorerSizeQuery(
     currentRemote,
     inspectDirectoryPath,
@@ -164,6 +215,47 @@ function ExplorerPage() {
     setPendingTransferAction(null)
     setPendingRenameAction(null)
   }
+  const isRcServeAvailabilityPending =
+    authMode === "none" &&
+    rcServeAvailabilityQuery.data === undefined &&
+    (rcServeAvailabilityQuery.isPending || rcServeAvailabilityQuery.isLoading)
+  const rcServeAvailable = authMode === "none" && rcServeAvailabilityQuery.data === true
+  const downloadFromRcServe = useCallback((item: PendingTransferItem) => {
+    if (!rcServeAvailable || !currentRemote) {
+      return
+    }
+
+    const anchor = document.createElement("a")
+    anchor.href = buildRcServeUrl(apiBaseUrl, currentRemote, item.srcPath)
+    anchor.download = item.itemName
+    anchor.rel = "noreferrer"
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+  }, [apiBaseUrl, currentRemote, rcServeAvailable])
+  const downloadManyFromRcServe = useCallback((items: PendingTransferItem[]) => {
+    for (const item of items) {
+      downloadFromRcServe(item)
+    }
+  }, [downloadFromRcServe])
+  const openMediaPreview = useCallback((item: PendingTransferItem) => {
+    if (!rcServeAvailable || !currentRemote) {
+      return
+    }
+
+    const kind = getPreviewKind(item)
+    if (!kind) {
+      return
+    }
+
+    setMediaPreview({
+      fileName: item.itemName,
+      kind,
+      layout: getDefaultMediaPreviewLayout(kind),
+      path: item.srcPath,
+      url: buildRcServeUrl(apiBaseUrl, currentRemote, item.srcPath),
+    })
+  }, [apiBaseUrl, currentRemote, rcServeAvailable, setMediaPreview])
   const openNewDirectoryInput = (enabled: boolean) => {
     setShowNewDirectoryInput(enabled)
 
@@ -355,6 +447,14 @@ function ExplorerPage() {
   const canSyncSelection =
     syncEnabled && selectedItems.length === 1 && selectedItems.every((item) => item.itemType === "dir")
   const canShareSelection = selectedItems.length === 1 && supportsPublicLink
+  const canDownloadSelection =
+    selectedItems.length > 0 && selectedItems.every((item) => item.itemType === "file") && rcServeAvailable
+  const canBulkDownloadSelection = !compactToolbar && canDownloadSelection
+  const shouldShowSelectionDownloadCheck =
+    !compactToolbar &&
+    selectedItems.length > 0 &&
+    selectedItems.every((item) => item.itemType === "file") &&
+    isRcServeAvailabilityPending
   const copyLocationValue =
     selectedItems.length === 1
       ? formatRemoteLocation(currentRemote, selectedItems[0].srcPath)
@@ -385,6 +485,12 @@ function ExplorerPage() {
   useEffect(() => {
     setPublicLink(null)
   }, [currentPath, currentRemote, supportsPublicLink])
+
+  useEffect(() => {
+    if (currentRemote && authMode === "none" && rcServeAvailabilityQuery.data === false) {
+      setMediaPreview(null)
+    }
+  }, [authMode, currentRemote, rcServeAvailabilityQuery.data, setMediaPreview])
 
   useEffect(() => {
     setFilterText("")
@@ -605,7 +711,10 @@ function ExplorerPage() {
 
           setIsRefreshingLocation(true)
           try {
-            await explorerQuery.refetch()
+            await Promise.all([
+              explorerQuery.refetch(),
+              authMode === "none" ? rcServeAvailabilityQuery.refetch() : Promise.resolve(),
+            ])
           } finally {
             setIsRefreshingLocation(false)
           }
@@ -893,6 +1002,16 @@ function ExplorerPage() {
                       {selectedItems.length === 1 ? (
                         <UIButton size="toolbar" variant="toolbar" onClick={beginRename}>
                           {messages.common.rename()}
+                        </UIButton>
+                      ) : null}
+                      {canBulkDownloadSelection ? (
+                        <UIButton size="toolbar" variant="toolbar" onClick={() => downloadManyFromRcServe(selectedItems)}>
+                          {messages.explorer.download()}
+                        </UIButton>
+                      ) : shouldShowSelectionDownloadCheck ? (
+                        <UIButton size="toolbar" variant="toolbar" disabled className="gap-1.5 opacity-70">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          {messages.connection.checking()}
                         </UIButton>
                       ) : null}
                       <UIButton
@@ -1470,6 +1589,9 @@ function ExplorerPage() {
                         mimeType: item.mimeType,
                         size: item.size,
                       }
+                      const canPreviewRowItem = rowItem.itemType === "file" && rcServeAvailable && Boolean(getPreviewKind(rowItem))
+                      const canDownloadRowItem = rowItem.itemType === "file" && rcServeAvailable
+                      const shouldShowRcServeCheck = rowItem.itemType === "file" && isRcServeAvailabilityPending
 
                       return (
                         <div
@@ -1511,6 +1633,22 @@ function ExplorerPage() {
                                     </UIButton>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="start" className="w-[170px]">
+                                    {shouldShowRcServeCheck ? (
+                                      <DropdownMenuItem disabled className="gap-2 opacity-70">
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                        {messages.connection.checking()}
+                                      </DropdownMenuItem>
+                                    ) : null}
+                                    {canDownloadRowItem ? (
+                                      <DropdownMenuItem onClick={() => downloadFromRcServe(rowItem)}>
+                                        {messages.explorer.download()}
+                                      </DropdownMenuItem>
+                                    ) : null}
+                                    {canPreviewRowItem ? (
+                                      <DropdownMenuItem onClick={() => openMediaPreview(rowItem)}>
+                                        {messages.explorer.preview()}
+                                      </DropdownMenuItem>
+                                    ) : null}
                                     <DropdownMenuItem onClick={() => beginSingleTransfer("copy", rowItem)}>
                                       {messages.common.copy()}
                                     </DropdownMenuItem>

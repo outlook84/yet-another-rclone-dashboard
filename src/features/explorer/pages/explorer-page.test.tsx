@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ExplorerPage } from "@/features/explorer/pages/explorer-page"
 import { useSavedConnectionsStore } from "@/features/auth/store/saved-connections-store"
@@ -23,6 +23,7 @@ const copyFileMutationMock = vi.fn()
 const moveDirMutationMock = vi.fn()
 const moveFileMutationMock = vi.fn()
 const publicLinkMutationMock = vi.fn()
+const rcServeAvailabilityQueryMock = vi.fn()
 
 vi.mock("@/features/remotes/api/use-remotes-query", () => ({
   useRemotesQuery: () => remotesQueryMock(),
@@ -76,6 +77,10 @@ vi.mock("@/features/explorer/api/use-explorer-public-link-mutation", () => ({
   useExplorerPublicLinkMutation: () => publicLinkMutationMock(),
 }))
 
+vi.mock("@/features/explorer/api/use-rc-serve-availability-query", () => ({
+  useRcServeAvailabilityQuery: () => rcServeAvailabilityQueryMock(),
+}))
+
 // In jsdom there are no real scroll container dimensions, so useVirtualizer
 // would produce an empty virtual items list. Mock it to render every item.
 vi.mock("@tanstack/react-virtual", () => ({
@@ -94,12 +99,29 @@ vi.mock("@tanstack/react-virtual", () => ({
 }))
 
 describe("ExplorerPage", () => {
+  function setMatchMedia(matchesByQuery: Record<string, boolean>) {
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: matchesByQuery[query] ?? false,
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    })
+  }
+
   afterEach(() => {
     cleanup()
     vi.restoreAllMocks()
   })
 
   beforeEach(() => {
+    setMatchMedia({})
     useExplorerUIStore.setState({
       scopeKey: null,
       actionsByScope: {},
@@ -262,7 +284,109 @@ describe("ExplorerPage", () => {
       variables: undefined,
       mutateAsync: vi.fn(),
     })
+    rcServeAvailabilityQueryMock.mockReturnValue({
+      data: false,
+      isLoading: false,
+      isPending: false,
+      refetch: vi.fn(),
+    })
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {})
   })
+
+  function expectRcServeDownloadHref({
+    remote,
+    currentPath,
+    fileName,
+    filePath,
+    expectedHref,
+  }: {
+    remote: string
+    currentPath: string
+    fileName: string
+    filePath: string
+    expectedHref: string
+  }) {
+    useConnectionStore.setState({
+      authMode: "none",
+      basicCredentials: {
+        username: "",
+        password: "",
+      },
+      lastServerInfo: {
+        product: "rclone",
+        version: "v1.72.0",
+        apiBaseUrl: "http://localhost:5572",
+      },
+    })
+    useSavedConnectionsStore.setState({
+      profiles: [
+        {
+          id: "demo-profile",
+          name: "Demo",
+          baseUrl: "http://localhost:5572",
+          authMode: "none",
+          basicCredentials: { username: "", password: "" },
+          updatedAt: "2026-03-27T10:00:00.000Z",
+          syncEnabled: true,
+        },
+      ],
+      selectedProfileId: "demo-profile",
+    })
+    useExplorerStore.getState().setScope("http://localhost:5572::none::anonymous")
+    useExplorerUIStore.getState().setScope("http://localhost:5572::none::anonymous")
+    rcServeAvailabilityQueryMock.mockReturnValue({
+      data: true,
+      isLoading: false,
+      isPending: false,
+      refetch: vi.fn(),
+    })
+    remotesQueryMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: [{ name: remote }, { name: "demo" }, { name: "other" }],
+    })
+    explorerListQueryMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: {
+        items: [
+          {
+            name: fileName,
+            path: filePath,
+            type: "file",
+            size: 1024,
+            modTime: "2026-03-22T00:00:00Z",
+            mimeType: "video/mp4",
+          },
+        ],
+      },
+      refetch: vi.fn(),
+    })
+    useExplorerStore.getState().setLocation(remote, currentPath)
+
+    let appendedAnchorHref: string | null = null
+    const originalAppendChild = document.body.appendChild.bind(document.body)
+    vi.spyOn(document.body, "appendChild").mockImplementation((node) => {
+      if (node instanceof HTMLAnchorElement) {
+        appendedAnchorHref = node.href
+      }
+      return originalAppendChild(node)
+    })
+
+    renderWithProviders(<ExplorerPage />)
+
+    const fileRow = screen.getByText(fileName).closest('[role="row"]')
+    if (!fileRow) {
+      throw new Error("video row not found")
+    }
+
+    fireEvent.pointerDown(within(fileRow as HTMLElement).getByRole("button", { name: "Item actions" }))
+    fireEvent.click(screen.getByText("Download"))
+
+    const clickedAnchor = HTMLAnchorElement.prototype.click as unknown as ReturnType<typeof vi.fn>
+    expect(clickedAnchor).toHaveBeenCalled()
+    expect(appendedAnchorHref).toBe(expectedHref)
+  }
 
   it("shows share link action only when backend reports native support", () => {
     renderWithProviders(<ExplorerPage />)
@@ -414,6 +538,461 @@ describe("ExplorerPage", () => {
 
     expect(screen.getByText(formatLocalizedCompactDateTime("2026-03-22T00:00:00Z", "en"))).not.toBeNull()
     expect(screen.getByText(formatLocalizedCompactDateTime("2026-03-21T00:00:00Z", "en"))).not.toBeNull()
+  })
+
+  it("does not show direct preview or download actions for basic-auth files", () => {
+    renderWithProviders(<ExplorerPage />)
+
+    const fileRow = screen.getByText("file.txt").closest('[role="row"]')
+    if (!fileRow) {
+      throw new Error("file row not found")
+    }
+
+    fireEvent.pointerDown(within(fileRow as HTMLElement).getByRole("button", { name: "Item actions" }))
+    expect(screen.queryByText("Preview")).toBeNull()
+    expect(screen.queryByText("Download")).toBeNull()
+  })
+
+  it("shows browser preview only for no-auth media files", () => {
+    useConnectionStore.setState({
+      authMode: "none",
+      basicCredentials: {
+        username: "",
+        password: "",
+      },
+      lastServerInfo: {
+        product: "rclone",
+        version: "v1.72.0",
+        apiBaseUrl: "http://localhost:5572",
+      },
+    })
+    useSavedConnectionsStore.setState({
+      profiles: [
+        {
+          id: "demo-profile",
+          name: "Demo",
+          baseUrl: "http://localhost:5572",
+          authMode: "none",
+          basicCredentials: { username: "", password: "" },
+          updatedAt: "2026-03-27T10:00:00.000Z",
+          syncEnabled: true,
+        },
+      ],
+      selectedProfileId: "demo-profile",
+    })
+    useExplorerStore.getState().setScope("http://localhost:5572::none::anonymous")
+    useExplorerStore.getState().setLocation("demo", "folder")
+    useExplorerUIStore.getState().setScope("http://localhost:5572::none::anonymous")
+    rcServeAvailabilityQueryMock.mockReturnValue({
+      data: true,
+      isLoading: false,
+      isPending: false,
+      refetch: vi.fn(),
+    })
+    explorerListQueryMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: {
+        items: [
+          {
+            name: "clip.mp4",
+            path: "folder/clip.mp4",
+            type: "file",
+            size: 1024,
+            modTime: "2026-03-22T00:00:00Z",
+            mimeType: "video/mp4",
+          },
+        ],
+      },
+      refetch: vi.fn(),
+    })
+
+    renderWithProviders(<ExplorerPage />)
+
+    const fileRow = screen.getByText("clip.mp4").closest('[role="row"]')
+    if (!fileRow) {
+      throw new Error("video row not found")
+    }
+
+    fireEvent.pointerDown(within(fileRow as HTMLElement).getByRole("button", { name: "Item actions" }))
+    expect(screen.getByText("Preview")).not.toBeNull()
+    fireEvent.click(screen.getByText("Preview"))
+
+    const previewScopeKey = useExplorerUIStore.getState().scopeKey!
+    expect(useExplorerUIStore.getState().actionsByScope[previewScopeKey]?.mediaPreview).toMatchObject({
+      fileName: "clip.mp4",
+      kind: "video",
+      url: "http://localhost:5572/%5Bdemo%3A%5D/folder/clip.mp4",
+    })
+  })
+
+  it("keeps media preview open when switching tabs", () => {
+    useConnectionStore.setState({
+      authMode: "none",
+      basicCredentials: {
+        username: "",
+        password: "",
+      },
+      lastServerInfo: {
+        product: "rclone",
+        version: "v1.72.0",
+        apiBaseUrl: "http://localhost:5572",
+      },
+    })
+    rcServeAvailabilityQueryMock.mockReturnValue({
+      data: true,
+      isLoading: false,
+      isPending: false,
+      refetch: vi.fn(),
+    })
+    explorerListQueryMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: {
+        items: [
+          {
+            name: "clip.mp4",
+            path: "folder/clip.mp4",
+            type: "file",
+            size: 1024,
+            modTime: "2026-03-22T00:00:00Z",
+            mimeType: "video/mp4",
+          },
+        ],
+      },
+      refetch: vi.fn(),
+    })
+
+    renderWithProviders(<ExplorerPage />)
+
+    const fileRow = screen.getByText("clip.mp4").closest('[role="row"]')
+    if (!fileRow) {
+      throw new Error("video row not found")
+    }
+
+    fireEvent.pointerDown(within(fileRow as HTMLElement).getByRole("button", { name: "Item actions" }))
+    fireEvent.click(screen.getByText("Preview"))
+
+    const previewScopeKey = useExplorerUIStore.getState().scopeKey!
+    expect(useExplorerUIStore.getState().actionsByScope[previewScopeKey]?.mediaPreview).toMatchObject({
+      fileName: "clip.mp4",
+      path: "folder/clip.mp4",
+    })
+
+    act(() => {
+      useExplorerStore.getState().addTab({ remote: "demo", path: "other-folder" })
+    })
+
+    expect(useExplorerUIStore.getState().actionsByScope[previewScopeKey]?.mediaPreview).toMatchObject({
+      fileName: "clip.mp4",
+      path: "folder/clip.mp4",
+      url: "http://localhost:5572/%5Bdemo%3A%5D/folder/clip.mp4",
+    })
+  })
+
+  it("shows download for no-auth files and triggers anchor download", () => {
+    useConnectionStore.setState({
+      authMode: "none",
+      basicCredentials: {
+        username: "",
+        password: "",
+      },
+      lastServerInfo: {
+        product: "rclone",
+        version: "v1.72.0",
+        apiBaseUrl: "http://localhost:5572",
+      },
+    })
+    useSavedConnectionsStore.setState({
+      profiles: [
+        {
+          id: "demo-profile",
+          name: "Demo",
+          baseUrl: "http://localhost:5572",
+          authMode: "none",
+          basicCredentials: { username: "", password: "" },
+          updatedAt: "2026-03-27T10:00:00.000Z",
+          syncEnabled: true,
+        },
+      ],
+      selectedProfileId: "demo-profile",
+    })
+    useExplorerStore.getState().setScope("http://localhost:5572::none::anonymous")
+    useExplorerStore.getState().setLocation("demo", "folder")
+    useExplorerUIStore.getState().setScope("http://localhost:5572::none::anonymous")
+    rcServeAvailabilityQueryMock.mockReturnValue({
+      data: true,
+      isLoading: false,
+      isPending: false,
+      refetch: vi.fn(),
+    })
+
+    renderWithProviders(<ExplorerPage />)
+
+    const fileRow = screen.getByText("file.txt").closest('[role="row"]')
+    if (!fileRow) {
+      throw new Error("file row not found")
+    }
+
+    fireEvent.pointerDown(within(fileRow as HTMLElement).getByRole("button", { name: "Item actions" }))
+    expect(screen.queryByText("Open")).toBeNull()
+    expect(screen.queryByText("Preview")).toBeNull()
+    fireEvent.click(screen.getByText("Download"))
+
+    const clickedAnchor = HTMLAnchorElement.prototype.click as unknown as ReturnType<typeof vi.fn>
+    expect(clickedAnchor).toHaveBeenCalled()
+  })
+
+  it("encodes rc-serve remote and path segments for bracketed file paths", () => {
+    expectRcServeDownloadHref({
+      remote: "pikpak-native",
+      currentPath: "Collection/[OF] Ellie [demo]",
+      fileName: "2019-08-22.mp4",
+      filePath: "Collection/[OF] Ellie [demo]/2019-08-22.mp4",
+      expectedHref:
+        "http://localhost:5572/%5Bpikpak-native%3A%5D/Collection/%5BOF%5D%20Ellie%20%5Bdemo%5D/2019-08-22.mp4",
+    })
+  })
+
+  it("hides direct preview and download actions when rc-serve is unavailable", () => {
+    useConnectionStore.setState({
+      authMode: "none",
+      basicCredentials: {
+        username: "",
+        password: "",
+      },
+      lastServerInfo: {
+        product: "rclone",
+        version: "v1.72.0",
+        apiBaseUrl: "http://localhost:5572",
+      },
+    })
+    useSavedConnectionsStore.setState({
+      profiles: [
+        {
+          id: "demo-profile",
+          name: "Demo",
+          baseUrl: "http://localhost:5572",
+          authMode: "none",
+          basicCredentials: { username: "", password: "" },
+          updatedAt: "2026-03-27T10:00:00.000Z",
+          syncEnabled: true,
+        },
+      ],
+      selectedProfileId: "demo-profile",
+    })
+    useExplorerStore.getState().setScope("http://localhost:5572::none::anonymous")
+    useExplorerStore.getState().setLocation("demo", "folder")
+    useExplorerUIStore.getState().setScope("http://localhost:5572::none::anonymous")
+    rcServeAvailabilityQueryMock.mockReturnValue({
+      data: false,
+      isLoading: false,
+      isPending: false,
+      refetch: vi.fn(),
+    })
+
+    renderWithProviders(<ExplorerPage />)
+
+    const fileRow = screen.getByText("file.txt").closest('[role="row"]')
+    if (!fileRow) {
+      throw new Error("file row not found")
+    }
+
+    fireEvent.pointerDown(within(fileRow as HTMLElement).getByRole("button", { name: "Item actions" }))
+    expect(screen.queryByText("Download")).toBeNull()
+    expect(screen.queryByText("Preview")).toBeNull()
+  })
+
+  it("shows a stable checking state while rc-serve availability is probing", () => {
+    useConnectionStore.setState({
+      authMode: "none",
+      basicCredentials: {
+        username: "",
+        password: "",
+      },
+      lastServerInfo: {
+        product: "rclone",
+        version: "v1.72.0",
+        apiBaseUrl: "http://localhost:5572",
+      },
+    })
+    useSavedConnectionsStore.setState({
+      profiles: [
+        {
+          id: "demo-profile",
+          name: "Demo",
+          baseUrl: "http://localhost:5572",
+          authMode: "none",
+          basicCredentials: { username: "", password: "" },
+          updatedAt: "2026-03-27T10:00:00.000Z",
+          syncEnabled: true,
+        },
+      ],
+      selectedProfileId: "demo-profile",
+    })
+    useExplorerStore.getState().setScope("http://localhost:5572::none::anonymous")
+    useExplorerStore.getState().setLocation("demo", "folder")
+    useExplorerUIStore.getState().setScope("http://localhost:5572::none::anonymous")
+    rcServeAvailabilityQueryMock.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      isPending: true,
+      refetch: vi.fn(),
+    })
+
+    renderWithProviders(<ExplorerPage />)
+
+    const fileRow = screen.getByText("file.txt").closest('[role="row"]')
+    if (!fileRow) {
+      throw new Error("file row not found")
+    }
+
+    fireEvent.pointerDown(within(fileRow as HTMLElement).getByRole("button", { name: "Item actions" }))
+    expect(screen.getByText("Checking")).not.toBeNull()
+    expect(screen.queryByText("Download")).toBeNull()
+    expect(screen.queryByText("Preview")).toBeNull()
+  })
+
+  it("downloads selected files when rc-serve is available", () => {
+    useConnectionStore.setState({
+      authMode: "none",
+      basicCredentials: {
+        username: "",
+        password: "",
+      },
+      lastServerInfo: {
+        product: "rclone",
+        version: "v1.72.0",
+        apiBaseUrl: "http://localhost:5572",
+      },
+    })
+    useSavedConnectionsStore.setState({
+      profiles: [
+        {
+          id: "demo-profile",
+          name: "Demo",
+          baseUrl: "http://localhost:5572",
+          authMode: "none",
+          basicCredentials: { username: "", password: "" },
+          updatedAt: "2026-03-27T10:00:00.000Z",
+          syncEnabled: true,
+        },
+      ],
+      selectedProfileId: "demo-profile",
+    })
+    useExplorerStore.getState().setScope("http://localhost:5572::none::anonymous")
+    useExplorerStore.getState().setLocation("demo", "folder")
+    useExplorerUIStore.getState().setScope("http://localhost:5572::none::anonymous")
+    rcServeAvailabilityQueryMock.mockReturnValue({
+      data: true,
+      isLoading: false,
+      isPending: false,
+      refetch: vi.fn(),
+    })
+
+    renderWithProviders(<ExplorerPage />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Select" }))
+
+    const fileRow = screen.getByText("file.txt").closest('[role="row"]')
+    const logRow = screen.getByText("zeta.log").closest('[role="row"]')
+    if (!fileRow || !logRow) {
+      throw new Error("selection rows not found")
+    }
+
+    fireEvent.click(within(fileRow as HTMLElement).getByRole("checkbox"))
+    fireEvent.click(within(logRow as HTMLElement).getByRole("checkbox"))
+    fireEvent.click(screen.getByRole("button", { name: "Download" }))
+
+    const clickedAnchor = HTMLAnchorElement.prototype.click as unknown as ReturnType<typeof vi.fn>
+    expect(clickedAnchor).toHaveBeenCalledTimes(2)
+  })
+
+  it("hides bulk download actions on compact mobile toolbars", () => {
+    setMatchMedia({
+      "(max-width: 64em)": true,
+    })
+
+    useConnectionStore.setState({
+      authMode: "none",
+      basicCredentials: {
+        username: "",
+        password: "",
+      },
+      lastServerInfo: {
+        product: "rclone",
+        version: "v1.72.0",
+        apiBaseUrl: "http://localhost:5572",
+      },
+    })
+    useSavedConnectionsStore.setState({
+      profiles: [
+        {
+          id: "demo-profile",
+          name: "Demo",
+          baseUrl: "http://localhost:5572",
+          authMode: "none",
+          basicCredentials: { username: "", password: "" },
+          updatedAt: "2026-03-27T10:00:00.000Z",
+          syncEnabled: true,
+        },
+      ],
+      selectedProfileId: "demo-profile",
+    })
+    useExplorerStore.getState().setScope("http://localhost:5572::none::anonymous")
+    useExplorerStore.getState().setLocation("demo", "folder")
+    useExplorerUIStore.getState().setScope("http://localhost:5572::none::anonymous")
+    rcServeAvailabilityQueryMock.mockReturnValue({
+      data: true,
+      isLoading: false,
+      isPending: false,
+      refetch: vi.fn(),
+    })
+
+    renderWithProviders(<ExplorerPage />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Select" }))
+
+    const fileRow = screen.getByText("file.txt").closest('[role="row"]')
+    const logRow = screen.getByText("zeta.log").closest('[role="row"]')
+    if (!fileRow || !logRow) {
+      throw new Error("selection rows not found")
+    }
+
+    fireEvent.click(within(fileRow as HTMLElement).getByRole("checkbox"))
+    fireEvent.click(within(logRow as HTMLElement).getByRole("checkbox"))
+
+    expect(screen.queryByRole("button", { name: "Download" })).toBeNull()
+  })
+
+  it("encodes rc-serve URLs for remotes with spaces", () => {
+    expectRcServeDownloadHref({
+      remote: "my remote",
+      currentPath: "folder",
+      fileName: "clip.mp4",
+      filePath: "folder/clip.mp4",
+      expectedHref: "http://localhost:5572/%5Bmy%20remote%3A%5D/folder/clip.mp4",
+    })
+  })
+
+  it("encodes rc-serve URLs for remotes with plus signs", () => {
+    expectRcServeDownloadHref({
+      remote: "team+share",
+      currentPath: "folder",
+      fileName: "clip.mp4",
+      filePath: "folder/clip.mp4",
+      expectedHref: "http://localhost:5572/%5Bteam%2Bshare%3A%5D/folder/clip.mp4",
+    })
+  })
+
+  it("encodes rc-serve URLs for remotes with unicode characters", () => {
+    expectRcServeDownloadHref({
+      remote: "中文Remote",
+      currentPath: "folder",
+      fileName: "clip.mp4",
+      filePath: "folder/clip.mp4",
+      expectedHref: "http://localhost:5572/%5B%E4%B8%AD%E6%96%87Remote%3A%5D/folder/clip.mp4",
+    })
   })
 
   it("deletes mixed file and directory selections through the batch mutation", async () => {

@@ -89,4 +89,49 @@ describe("useExplorerUIStore", () => {
       "tab-1": ["a.txt", "b.txt"],
     })
   })
+
+  it("keeps media preview isolated by scope", () => {
+    useExplorerUIStore.getState().setScope("scope-a")
+    useExplorerUIStore.getState().setMediaPreview({
+      fileName: "clip.mp4",
+      kind: "video",
+      layout: "video-landscape",
+      path: "folder/clip.mp4",
+      url: "http://localhost/clip.mp4",
+    })
+
+    useExplorerUIStore.getState().setScope("scope-b")
+    expect(useExplorerUIStore.getState().actionsByScope["scope-b"]?.mediaPreview).toBeNull()
+
+    useExplorerUIStore.getState().setScope("scope-a")
+    expect(useExplorerUIStore.getState().actionsByScope["scope-a"]?.mediaPreview).toMatchObject({
+      fileName: "clip.mp4",
+      kind: "video",
+    })
+  })
+
+  it("clears media previews across all scopes", () => {
+    useExplorerUIStore.getState().setScope("scope-a")
+    useExplorerUIStore.getState().setMediaPreview({
+      fileName: "clip-a.mp4",
+      kind: "video",
+      layout: "video-landscape",
+      path: "folder/clip-a.mp4",
+      url: "http://localhost/clip-a.mp4",
+    })
+
+    useExplorerUIStore.getState().setScope("scope-b")
+    useExplorerUIStore.getState().setMediaPreview({
+      fileName: "clip-b.mp4",
+      kind: "video",
+      layout: "video-landscape",
+      path: "folder/clip-b.mp4",
+      url: "http://localhost/clip-b.mp4",
+    })
+
+    useExplorerUIStore.getState().clearAllMediaPreviews()
+
+    expect(useExplorerUIStore.getState().actionsByScope["scope-a"]?.mediaPreview).toBeNull()
+    expect(useExplorerUIStore.getState().actionsByScope["scope-b"]?.mediaPreview).toBeNull()
+  })
 })

@@ -1,7 +1,9 @@
 import { Loader2, Save, Trash2 } from "lucide-react"
 import { useMemo, useState } from "react"
-import { useMutation } from "@tanstack/react-query"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createRcloneRcAppApiClient } from "@/shared/api/client/app-api-client"
+import { useExplorerUIStore } from "@/features/explorer/store/explorer-ui-store"
+import { useOverviewStore } from "@/features/overview/store/overview-store"
 import { PageShell } from "@/shared/components/page-shell"
 import { useNotify } from "@/shared/components/notification-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/shared/components/ui/alert"
@@ -15,8 +17,53 @@ import { useI18n } from "@/shared/i18n"
 import { inputExamples, resolveInputExample } from "@/shared/i18n/input-examples"
 import { toErrorMessage } from "@/shared/lib/error-utils"
 import { cn } from "@/shared/lib/cn"
-import { useSavedConnectionsStore } from "@/features/auth/store/saved-connections-store"
+import { queryKeys } from "@/shared/lib/query-keys"
+import { createProfileName, useSavedConnectionsStore } from "@/features/auth/store/saved-connections-store"
+import { buildConnectionScope, useConnectionScope } from "@/shared/hooks/use-connection-scope"
+import type { AuthMode } from "@/shared/api/contracts/auth"
 import { useConnectionStore } from "@/shared/store/connection-store"
+
+async function validateConnectionWithMode(input: {
+  baseUrl: string
+  authMode: AuthMode
+  basicCredentials: { username: string; password: string }
+}) {
+  const client = createRcloneRcAppApiClient({
+    baseUrl: input.baseUrl,
+    authMode: input.authMode,
+    basicCredentials: input.basicCredentials,
+  })
+
+  const [ping, serverInfo] = await Promise.all([
+    client.session.ping(),
+    client.session.getServerInfo(),
+  ])
+
+  return {
+    ping,
+    serverInfo,
+    authMode: input.authMode,
+  }
+}
+
+async function validateConnectionAndDetectAuthMode(input: {
+  baseUrl: string
+  authMode: AuthMode
+  basicCredentials: { username: string; password: string }
+}) {
+  if (input.authMode === "basic") {
+    try {
+      return await validateConnectionWithMode({
+        ...input,
+        authMode: "none",
+      })
+    } catch {
+      return validateConnectionWithMode(input)
+    }
+  }
+
+  return validateConnectionWithMode(input)
+}
 
 function ConnectPage() {
   const { locale, messages } = useI18n()
@@ -37,6 +84,10 @@ function ConnectPage() {
   const deleteProfile = useSavedConnectionsStore((state) => state.deleteProfile)
   const notify = useNotify()
   const confirm = useConfirm()
+  const queryClient = useQueryClient()
+  const connectionScope = useConnectionScope()
+  const clearAllMediaPreviews = useExplorerUIStore((state) => state.clearAllMediaPreviews)
+  const setOverviewMemStats = useOverviewStore((state) => state.setMemStats)
   const [syncEnabledDraftState, setSyncEnabledDraftState] = useState<{
     profileId: string | null
     value: boolean
@@ -56,23 +107,59 @@ function ConnectPage() {
   const validateConnection = useMutation({
     mutationFn: async (params?: { baseUrl: string; authMode: string; basicCredentials?: typeof basicCredentials }) => {
       const targetBaseUrl = params?.baseUrl ?? baseUrl
-      const targetAuthMode = params?.authMode ?? authMode
+      const targetAuthMode = (params?.authMode ?? authMode) as AuthMode
       const targetBasicCredentials = params?.basicCredentials ?? basicCredentials
 
-      const client = createRcloneRcAppApiClient({
+      return validateConnectionAndDetectAuthMode({
         baseUrl: targetBaseUrl,
-        authMode: targetAuthMode as "basic" | "none",
-        basicCredentials: targetBasicCredentials!,
+        authMode: targetAuthMode,
+        basicCredentials: targetBasicCredentials,
+      })
+    },
+    onSuccess: (result, params) => {
+      const nextBaseUrl = params?.baseUrl ?? baseUrl
+      const nextAuthMode = result.authMode
+      const nextBasicCredentials = params?.basicCredentials ?? basicCredentials
+      const nextScope = buildConnectionScope({
+        baseUrl: nextBaseUrl,
+        authMode: nextAuthMode,
+        username: nextBasicCredentials.username,
+        apiBaseUrl: result.serverInfo.apiBaseUrl,
       })
 
-      const [ping, serverInfo] = await Promise.all([
-        client.session.ping(),
-        client.session.getServerInfo(),
-      ])
-
-      return { ping, serverInfo }
-    },
-    onSuccess: (result) => {
+      for (const scope of new Set([connectionScope, nextScope])) {
+        queryClient.removeQueries({
+          queryKey: queryKeys.scope(scope),
+        })
+      }
+      queryClient.removeQueries({
+        queryKey: ["connection-health"],
+      })
+      clearAllMediaPreviews()
+      setOverviewMemStats(null)
+      if (selectedProfile) {
+        const previousGeneratedName = createProfileName(
+          selectedProfile.baseUrl,
+          selectedProfile.authMode,
+          selectedProfile.basicCredentials.username,
+        )
+        const shouldRegenerateName = selectedProfile.name === previousGeneratedName
+        saveProfile({
+          id: selectedProfile.id,
+          name: shouldRegenerateName
+            ? createProfileName(nextBaseUrl, nextAuthMode, nextBasicCredentials.username)
+            : selectedProfile.name,
+          baseUrl: nextBaseUrl,
+          authMode: nextAuthMode,
+          basicCredentials: nextBasicCredentials,
+          syncEnabled: syncEnabledDraft,
+        })
+      }
+      applyConnection({
+        baseUrl: nextBaseUrl,
+        authMode: nextAuthMode,
+        basicCredentials: nextBasicCredentials,
+      })
       markValidated(result.serverInfo)
     },
     onError: (error) => {
@@ -208,6 +295,7 @@ function ConnectPage() {
                   <option value="basic">{messages.connect.authBasic()}</option>
                   <option value="none">{messages.connect.authNone()}</option>
                 </NativeSelect>
+                <span className="app-help-text">{messages.connect.authModeDescription()}</span>
               </label>
 
               {authMode === "basic" ? (
