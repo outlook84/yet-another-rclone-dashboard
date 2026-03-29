@@ -36,6 +36,7 @@ import { useI18n } from "@/shared/i18n"
 import { formatLocalizedNumber } from "@/shared/i18n/formatters"
 import { inputExamples, resolveInputExample } from "@/shared/i18n/input-examples"
 import { cn } from "@/shared/lib/cn"
+import { isValidRemoteName } from "@/shared/lib/remote-name"
 import { useMediaQuery } from "@/shared/hooks/use-media-query"
 import { useConnectionScope } from "@/shared/hooks/use-connection-scope"
 import { queryKeys } from "@/shared/lib/query-keys"
@@ -171,23 +172,30 @@ function RemotesPage() {
         totalNames: 0,
         importable: [] as Array<{ name: string; config: Record<string, unknown> }>,
         skippedExisting: [] as string[],
-        invalidEntries: [] as string[],
+        invalidRemoteNames: [] as string[],
+        missingTypeEntries: [] as string[],
       }
     }
 
     const importable: Array<{ name: string; config: Record<string, unknown> }> = []
     const skippedExisting: string[] = []
-    const invalidEntries: string[] = []
+    const invalidRemoteNames: string[] = []
+    const missingTypeEntries: string[] = []
 
     Object.entries(configMap).forEach(([name, value]) => {
       if (!value || Array.isArray(value) || typeof value !== "object") {
-        invalidEntries.push(name)
+        missingTypeEntries.push(name)
+        return
+      }
+
+      if (!isValidRemoteName(name)) {
+        invalidRemoteNames.push(name)
         return
       }
 
       const remoteConfig = value as Record<string, unknown>
       if (typeof remoteConfig.type !== "string" || !remoteConfig.type.trim()) {
-        invalidEntries.push(name)
+        missingTypeEntries.push(name)
         return
       }
 
@@ -206,7 +214,8 @@ function RemotesPage() {
       totalNames: Object.keys(configMap).length,
       importable,
       skippedExisting,
-      invalidEntries,
+      invalidRemoteNames,
+      missingTypeEntries,
     }
   }, [parsedImportConfig.configMap, remotesQuery.data])
 
@@ -667,7 +676,7 @@ function RemotesPage() {
                         <div>{messages.remotes.jsonRemotes()}: {importPlan.totalNames}</div>
                         <div>{messages.remotes.importable()}: {importPlan.importable.length}</div>
                         <div>{messages.remotes.existing()}: {importPlan.skippedExisting.length}</div>
-                        <div>{messages.remotes.invalid()}: {importPlan.invalidEntries.length}</div>
+                        <div>{messages.remotes.invalid()}: {importPlan.invalidRemoteNames.length + importPlan.missingTypeEntries.length}</div>
                       </div>
                     ) : null}
 
@@ -679,11 +688,19 @@ function RemotesPage() {
                         )}
                       </p>
                     ) : null}
-                    {importPlan.invalidEntries.length > 0 ? (
+                    {importPlan.invalidRemoteNames.length > 0 ? (
                       <p className="text-sm text-[color:var(--app-text-soft)]">
-                        {messages.remotes.invalidEntries(
-                          importPlan.invalidEntries.slice(0, 6).join(", "),
-                          importPlan.invalidEntries.length > 6,
+                        {messages.remotes.invalidRemoteNameEntries(
+                          importPlan.invalidRemoteNames.slice(0, 6).join(", "),
+                          importPlan.invalidRemoteNames.length > 6,
+                        )}
+                      </p>
+                    ) : null}
+                    {importPlan.missingTypeEntries.length > 0 ? (
+                      <p className="text-sm text-[color:var(--app-text-soft)]">
+                        {messages.remotes.missingTypeEntries(
+                          importPlan.missingTypeEntries.slice(0, 6).join(", "),
+                          importPlan.missingTypeEntries.length > 6,
                         )}
                       </p>
                     ) : null}

@@ -1,8 +1,22 @@
 import type { CreateRemoteInput, RemoteApi, RemoteDetail, RemoteSummary, UpdateRemoteInput } from "@/shared/api/contracts/remotes"
 import type { ApiTransport } from "@/shared/api/transport/api-transport"
+import { isValidRemoteName } from "@/shared/lib/remote-name"
+
+interface RcloneRcRemoteApiOptions {
+  invalidRemoteNameMessage?: string
+}
 
 class RcloneRcRemoteApi implements RemoteApi {
-  constructor(private readonly transport: ApiTransport) {}
+  private readonly invalidRemoteNameMessage: string
+
+  constructor(
+    private readonly transport: ApiTransport,
+    options: RcloneRcRemoteApiOptions = {},
+  ) {
+    this.invalidRemoteNameMessage =
+      options.invalidRemoteNameMessage ??
+      "Remote name contains invalid characters. Rclone allows letters, numbers, `_`, `-`, `.`, `+`, `@`, and spaces between segments, but the name cannot start with `-` or space, or end with space."
+  }
 
   async list(): Promise<RemoteSummary[]> {
     const response = await this.transport.request<Record<string, unknown>>({
@@ -41,6 +55,10 @@ class RcloneRcRemoteApi implements RemoteApi {
   }
 
   async create(input: CreateRemoteInput): Promise<RemoteDetail> {
+    if (!isValidRemoteName(input.name)) {
+      throw new Error(this.invalidRemoteNameMessage)
+    }
+
     const remoteType = input.config.type
     if (typeof remoteType !== "string" || !remoteType.trim()) {
       throw new Error("Remote JSON must include a string \"type\" field")

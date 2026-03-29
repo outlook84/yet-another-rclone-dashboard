@@ -280,4 +280,45 @@ describe("RemotesPage", () => {
 
     expect((screen.getByRole("button", { name: "Import Missing Remotes" }) as HTMLButtonElement).disabled).toBe(false)
   })
+
+  it("separates invalid import entries by reason", async () => {
+    renderWithProviders(
+      <MemoryRouter>
+        <RemotesPage />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(screen.getByRole("button", { name: "Import Config JSON" }))
+
+    await waitFor(() => {
+      expect(screen.getByText("Import JSON")).not.toBeNull()
+    })
+
+    const editors = screen.getAllByRole("textbox")
+    const importEditor = editors[editors.length - 1]
+
+    fireEvent.change(importEditor, {
+      target: {
+        value: JSON.stringify(
+          {
+            "-bad name": {
+              type: "s3",
+            },
+            missingType: {
+              provider: "MinIO",
+            },
+          },
+          null,
+          2,
+        ),
+      },
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText("Invalid: 2")).not.toBeNull()
+    })
+
+    expect(screen.getByText("Invalid remote names: -bad name")).not.toBeNull()
+    expect(screen.getByText("Missing or invalid type: missingType")).not.toBeNull()
+  })
 })

@@ -3,6 +3,7 @@
 import { render, screen } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { AppApiProvider, useAppApi } from "@/shared/api/client/api-context"
+import { messages } from "@/shared/i18n/messages"
 import { useConnectionStore } from "@/shared/store/connection-store"
 
 const createRcloneRcAppApiClientMock = vi.fn()
@@ -53,6 +54,7 @@ describe("api-context", () => {
         username: "gui",
         password: "",
       },
+      invalidRemoteNameMessage: messages.en.remotes.invalidRemoteName(),
     })
     expect(screen.getByText("client-1")).toBeTruthy()
   })

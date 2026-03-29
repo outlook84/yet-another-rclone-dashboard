@@ -28,6 +28,7 @@ interface RcloneRcClientOptions {
   baseUrl: string
   authMode: AuthMode
   basicCredentials: BasicCredentials
+  invalidRemoteNameMessage?: string
 }
 
 function createRcloneRcAppApiClient(options: RcloneRcClientOptions): AppApiClient {
@@ -48,7 +49,10 @@ function createRcloneRcAppApiClient(options: RcloneRcClientOptions): AppApiClien
 
   const loadRemotes = async (): Promise<RemoteApi> => {
     remotesPromise ??= import("@/shared/api/adapters/rclone-rc/remote-api").then(
-      ({ RcloneRcRemoteApi }) => new RcloneRcRemoteApi(transport),
+      ({ RcloneRcRemoteApi }) =>
+        new RcloneRcRemoteApi(transport, {
+          invalidRemoteNameMessage: options.invalidRemoteNameMessage,
+        }),
     )
     return remotesPromise
   }

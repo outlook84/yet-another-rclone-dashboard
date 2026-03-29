@@ -119,4 +119,18 @@ describe("RcloneRcRemoteApi", () => {
       }),
     ).rejects.toThrow('include a string "type" field')
   })
+
+  it("rejects create input with an invalid remote name", async () => {
+    const transport = createTransport(async () => ({}))
+    const api = new RcloneRcRemoteApi(transport)
+
+    await expect(
+      api.create({
+        name: "-broken",
+        config: {
+          type: "s3",
+        },
+      }),
+    ).rejects.toThrow("Remote name contains invalid characters")
+  })
 })
