@@ -12,6 +12,7 @@ import { AppProviders } from "@/app/providers/app-providers"
 import { useExplorerUIStore } from "@/features/explorer/store/explorer-ui-store"
 import { useConnectionStore } from "@/shared/store/connection-store"
 import { useLastVisitedRouteStore } from "@/shared/store/last-visited-route-store"
+import packageJson from "../../../package.json"
 
 const { connectionHealthQueryMock } = vi.hoisted(() => ({
   connectionHealthQueryMock: {
@@ -73,10 +74,14 @@ function restoreMediaPreviewIfNeeded() {
 }
 
 describe("RootLayout", () => {
+  const packageJsonRecord = packageJson as Record<string, unknown>
+  const originalRepository = packageJson.repository
+
   afterEach(() => {
     cleanup()
     vi.restoreAllMocks()
     vi.useRealTimers()
+    packageJsonRecord.repository = originalRepository
   })
 
   beforeEach(() => {
@@ -304,6 +309,23 @@ describe("RootLayout", () => {
     })
 
     expect(view.container.querySelector(".app-stats-refresh-icon--spin-fast")).toBeNull()
+  })
+
+  it("renders the GitHub project link with the localized accessible name and repository href", async () => {
+    renderRootLayout(["/overview"])
+
+    const githubLink = await screen.findByRole("link", { name: "Open GitHub project" })
+
+    expect(githubLink.getAttribute("href")).toBe("https://github.com/outlook84/yet-another-rclone-dashboard")
+    expect(githubLink.getAttribute("title")).toBe("Open GitHub project")
+  })
+
+  it("does not render the GitHub project link when repository metadata is missing", () => {
+    delete packageJsonRecord.repository
+
+    renderRootLayout(["/overview"])
+
+    expect(screen.queryByRole("link", { name: "Open GitHub project" })).toBeNull()
   })
 
   it("keeps the media preview mounted while switching routes", async () => {

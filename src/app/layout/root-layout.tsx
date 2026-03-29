@@ -5,6 +5,7 @@ import {
   BriefcaseBusiness,
   ChevronDown,
   Folder,
+  Github,
   House,
   Languages,
   Loader2,
@@ -258,6 +259,8 @@ function RootLayout() {
   const previousConnectionScopeRef = useRef(connectionScope)
   const previousIsValidatedRef = useRef(isValidated)
   const appVersion = packageJson.version
+  const githubProjectUrl =
+    typeof packageJson.repository === "string" ? packageJson.repository : packageJson.repository?.url
   const statsPollingOptions = useMemo(
     () => [
       { value: "1000", label: "1s" },
@@ -386,7 +389,7 @@ function RootLayout() {
         const navLabelClassName = "font-medium"
 
         return (
-            <Link
+          <Link
             key={item.to}
             to={item.to}
             state={item.to === "/" ? { manualConnect: true } : undefined}
@@ -488,7 +491,21 @@ function RootLayout() {
         </div>
         <div className="flex items-center justify-between gap-3">
           <span className="font-medium text-[color:var(--app-text-soft)]">{messages.app.versionLabel()}:</span>
-          <span className="font-bold text-[color:var(--app-text)]">{appVersion}</span>
+          <div className="flex items-center gap-2">
+            {githubProjectUrl ? (
+              <a
+                href={githubProjectUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex h-6 w-6 items-center justify-center rounded-md text-[color:var(--app-text-soft)] transition-colors hover:bg-[color:var(--app-hover-surface)] hover:text-[color:var(--app-text)]"
+                aria-label={messages.common.openGitHubProject()}
+                title={messages.common.openGitHubProject()}
+              >
+                <Github className="h-3.5 w-3.5 -translate-y-[2px]" />
+              </a>
+            ) : null}
+            <span className="font-bold text-[color:var(--app-text)]">{appVersion}</span>
+          </div>
         </div>
       </div>
     </div>

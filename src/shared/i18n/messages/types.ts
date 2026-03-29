@@ -28,6 +28,7 @@ type AppMessages = {
     errorTimeout: () => string
     itemsSelected: (count: number) => string
     dismissNotification: () => string
+    openGitHubProject: () => string
   }
   app: {
     shortName: () => string

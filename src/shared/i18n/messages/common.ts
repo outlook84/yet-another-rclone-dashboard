@@ -24,6 +24,7 @@ const commonMessages: MessageSet<AppMessages["common"]> = {
     errorTimeout: () => "Request timed out. The backend might be overloaded or unreachable.",
     itemsSelected: (count) => `${count} selected`,
     dismissNotification: () => "Dismiss notification",
+    openGitHubProject: () => "Open GitHub project",
   },
   "zh-CN": {
     section: () => "区块",
@@ -48,6 +49,7 @@ const commonMessages: MessageSet<AppMessages["common"]> = {
     errorTimeout: () => "请求超时。后端可能负载过高或暂时无法访问。",
     itemsSelected: (count) => `已选择 ${count} 项`,
     dismissNotification: () => "关闭通知",
+    openGitHubProject: () => "打开 GitHub 项目",
   },
 }
 
