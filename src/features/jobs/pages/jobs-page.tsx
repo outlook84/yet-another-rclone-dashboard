@@ -110,6 +110,10 @@ function JobsPage() {
     return compareTransferDatesDesc(left.startedAt, right.startedAt)
   })
   const visiblePastTransfers = transferredItems.filter((item) => {
+    if (!item.name?.trim() && !item.error) {
+      return false
+    }
+
     if (pastTransfersFilter === "completed") {
       return !item.error
     }

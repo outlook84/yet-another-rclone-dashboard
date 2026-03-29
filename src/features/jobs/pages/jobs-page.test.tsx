@@ -112,6 +112,89 @@ describe("JobsPage", () => {
     expect(screen.getByText("Completed.bin")).not.toBeNull()
   })
 
+  it("hides unnamed successful past transfers", () => {
+    globalStatsQueryMock.mockReturnValue({
+      isLoading: false,
+      isFetching: false,
+      error: null,
+      data: {
+        stats: {
+          errors: 0,
+          deletes: 0,
+          elapsedTime: 18,
+          transferring: [],
+        },
+        mem: {
+          Alloc: 0,
+        },
+        transferred: [
+          {
+            name: "   ",
+            bytes: 0,
+            size: 0,
+            completedAt: "2026-03-29T03:00:00Z",
+            error: "",
+            group: "job/ignored",
+          },
+          {
+            name: "folder/Shown.bin",
+            bytes: 10,
+            size: 10,
+            completedAt: "2026-03-29T02:00:00Z",
+            error: "",
+            group: "job/shown",
+          },
+        ],
+      },
+      refetch: vi.fn(),
+    })
+
+    renderWithProviders(<JobsPage />)
+
+    expect(screen.getByText("Shown.bin")).not.toBeNull()
+    expect(screen.queryByText("-")).toBeNull()
+  })
+
+  it("keeps unnamed failed past transfers visible in the failed filter", () => {
+    globalStatsQueryMock.mockReturnValue({
+      isLoading: false,
+      isFetching: false,
+      error: null,
+      data: {
+        stats: {
+          errors: 1,
+          deletes: 0,
+          elapsedTime: 18,
+          transferring: [],
+        },
+        mem: {
+          Alloc: 0,
+        },
+        transferred: [
+          {
+            name: "   ",
+            what: "transferring",
+            srcFs: "source:",
+            dstFs: "dest:/",
+            bytes: 0,
+            size: 0,
+            completedAt: "2026-03-29T03:00:00Z",
+            error: "boom",
+            group: "job/failed",
+          },
+        ],
+      },
+      refetch: vi.fn(),
+    })
+
+    renderWithProviders(<JobsPage />)
+    fireEvent.click(screen.getByRole("button", { name: "Failed" }))
+
+    expect(screen.getByText("boom")).not.toBeNull()
+    expect(screen.getByText("transferring")).not.toBeNull()
+    expect(screen.getAllByText("Failed").length).toBeGreaterThan(0)
+  })
+
   it("collapses the active transfers section", () => {
     renderWithProviders(<JobsPage />)
 
