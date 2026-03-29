@@ -54,10 +54,10 @@ function renderRootLayout(initialEntries: Array<string | { pathname: string; sta
   )
 }
 
-function seedMediaPreview() {
+function seedMediaPreview(fileName = "clip.mp4") {
   useExplorerUIStore.getState().setScope("http://localhost:5572::basic::gui")
   useExplorerUIStore.getState().setMediaPreview({
-    fileName: "clip.mp4",
+    fileName,
     kind: "video",
     layout: "video-landscape",
     path: "folder/clip.mp4",
@@ -319,6 +319,42 @@ describe("RootLayout", () => {
     expect(document.querySelector("video")?.getAttribute("src")).toBe(
       "http://localhost:5572/%5Bdemo%3A%5D/folder/clip.mp4",
     )
+  })
+
+  it("preserves a literal undefined filename in the media preview title", () => {
+    seedMediaPreview("undefined")
+
+    renderRootLayout(["/overview"])
+
+    expect(screen.getByRole("button", { name: "undefined" })).not.toBeNull()
+  })
+
+  it("preserves leading and trailing spaces in media preview download names", () => {
+    seedMediaPreview(" report.txt ")
+
+    const originalCreateElement = document.createElement.bind(document)
+    let createdAnchor: HTMLAnchorElement | null = null
+    vi.spyOn(document, "createElement").mockImplementation(((tagName: string, options?: ElementCreationOptions) => {
+      const element = originalCreateElement(tagName, options)
+      if (tagName === "a") {
+        createdAnchor = element as HTMLAnchorElement
+      }
+      return element
+    }) as typeof document.createElement)
+
+    renderRootLayout(["/overview"])
+
+    expect(
+      screen.getByText((content, element) => element?.textContent === " report.txt " && content.includes("report.txt")),
+    ).not.toBeNull()
+
+    fireEvent.click(screen.getByRole("button", { name: "Download" }))
+
+    if (!createdAnchor) {
+      throw new Error("download anchor was not created")
+    }
+
+    expect((createdAnchor as HTMLAnchorElement).getAttribute("download")).toBe(" report.txt ")
   })
 
   it("clears the media preview when connection scope changes outside explorer", async () => {

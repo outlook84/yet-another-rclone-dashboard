@@ -3,7 +3,7 @@ import { cn } from "@/shared/lib/cn"
 import { useRemotesQuery } from "@/features/remotes/api/use-remotes-query"
 import { useSharedGlobalStatsQuery } from "@/features/jobs/api/use-global-stats-query"
 import { useStatsPollingStore } from "@/features/jobs/store/stats-polling-store"
-import { formatBytes, formatElapsedTime, getCurrentThroughput } from "@/features/jobs/lib/display-utils"
+import { formatBytes, formatElapsedTime, formatRate, getCurrentThroughput } from "@/features/jobs/lib/display-utils"
 import { PageShell } from "@/shared/components/page-shell"
 import { QueryErrorAlert } from "@/shared/components/query-error-alert"
 import { SummaryCard } from "@/shared/components/summary-card"
@@ -18,6 +18,7 @@ import { MutationFeedbacks } from "@/shared/components/mutation-feedbacks"
 import { Button } from "@/shared/components/ui/button"
 import { useOverviewStore, type ThroughputSample } from "@/features/overview/store/overview-store"
 import { RotateCcw } from "lucide-react"
+import { formatBackendText, hasBackendText } from "@/shared/i18n/formatters"
 
 const THROUGHPUT_WINDOW_MS = 5 * 60 * 1000
 
@@ -134,7 +135,7 @@ function ThroughputChart({
     <div className="relative h-[220px] w-full overflow-hidden rounded-[8px]">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-4 text-xs font-normal text-[color:var(--app-text)]">
         {showPeakLabel ? (
-          <span className="app-chart-label absolute left-0 top-1 z-10 px-1.5 py-0.5">{formatBytes(maxValue, locale)}/s</span>
+          <span className="app-chart-label absolute left-0 top-1 z-10 px-1.5 py-0.5">{formatRate(maxValue, locale)}</span>
         ) : null}
       </div>
       <svg
@@ -236,7 +237,10 @@ function OverviewPage() {
     <PageShell title={messages.overview.title()} hideBadge hideHeader bareContent contentStyle={{ paddingTop: 4 }}>
       <div className="app-page-stack">
         <div className="grid grid-cols-2 gap-3 xl:grid-cols-6">
-          <SummaryCard label={messages.overview.rcloneVersion()} value={lastServerInfo?.version ?? messages.common.unknown()} />
+          <SummaryCard
+            label={messages.overview.rcloneVersion()}
+            value={formatBackendText(lastServerInfo?.version, messages.common.unknown())}
+          />
           <SummaryCard label={messages.overview.connectedRemotes()} value={remotesQuery.data?.length ?? 0} />
           <SummaryCard
             label={messages.overview.latency()}
@@ -268,7 +272,7 @@ function OverviewPage() {
                     {messages.overview.currentThroughput()}
                   </div>
                   <div className="text-base font-bold text-[color:var(--app-text)]">
-                    {formatBytes(currentThroughput, locale)}/s
+                    {formatRate(currentThroughput, locale)}
                   </div>
                 </div>
               </div>
@@ -329,8 +333,8 @@ function OverviewPage() {
               >
                 {messages.overview.latestGlobalError()}
               </div>
-              {globalStats?.lastError ? (
-                <p className="text-sm text-[color:var(--app-text)]">{globalStats.lastError}</p>
+              {hasBackendText(globalStats?.lastError) ? (
+                <p className="text-sm text-[color:var(--app-text)]">{formatBackendText(globalStats?.lastError)}</p>
               ) : (
                 <p className="text-sm text-[color:var(--app-text-soft)]">
                   {messages.overview.noRecentErrors()}{" "}

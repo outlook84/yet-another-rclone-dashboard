@@ -40,10 +40,15 @@ describe("toErrorMessage", () => {
     const withCauseMessage = new Error("outer")
     withCauseMessage.cause = { message: "inner message" }
     expect(toErrorMessage(withCauseMessage)).toBe("inner message")
+
+    const withDirtyCauseMessage = new Error("outer")
+    withDirtyCauseMessage.cause = { message: " undefined " }
+    expect(toErrorMessage(withDirtyCauseMessage, { ...commonMessages })).toBe("Unknown from i18n")
   })
 
   it("falls back to the original message or unknown error text", () => {
     expect(toErrorMessage(new Error("plain message"))).toBe("plain message")
+    expect(toErrorMessage(new Error(" undefined "), { ...commonMessages })).toBe("Unknown from i18n")
     expect(toErrorMessage("not-an-error", { ...commonMessages })).toBe("Unknown from i18n")
     expect(toErrorMessage(null, undefined, "Fallback text")).toBe("Fallback text")
   })

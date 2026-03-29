@@ -84,6 +84,7 @@ function MediaPreviewOverlay() {
   const mediaPreview = useExplorerUIStore((state) =>
     state.scopeKey ? state.actionsByScope[state.scopeKey]?.mediaPreview ?? null : null,
   )
+  const displayFileName = mediaPreview?.fileName ?? ""
   const setMediaPreview = useExplorerUIStore((state) => state.setMediaPreview)
   const mediaPreviewSizes = useExplorerUIStore((state) => state.mediaPreviewSizes)
   const setMediaPreviewSize = useExplorerUIStore((state) => state.setMediaPreviewSize)
@@ -270,14 +271,14 @@ function MediaPreviewOverlay() {
           <div className="relative min-w-0 flex-1">
             {isMediaPreviewTitleVisible && !compactMediaPreview ? (
               <div className="absolute left-0 top-full z-10 mt-2 max-w-[min(30rem,calc(100vw-2rem))] rounded-[12px] border border-[color:var(--app-border)] bg-[color:var(--app-panel)] px-3 py-2 text-xs text-[color:var(--app-text)] shadow-[0_14px_30px_rgba(8,15,28,0.28)] break-all">
-                {mediaPreview.fileName}
+                {displayFileName}
               </div>
             ) : null}
             <button
               type="button"
               className="block w-full overflow-hidden text-ellipsis whitespace-nowrap text-left text-sm font-bold text-[color:var(--app-text)]"
-              aria-label={mediaPreview.fileName}
-              title={compactMediaPreview ? mediaPreview.fileName : undefined}
+              aria-label={displayFileName}
+              title={compactMediaPreview ? displayFileName : undefined}
               onPointerEnter={() => !compactMediaPreview && setTitleVisibleForPath(mediaPreview.path)}
               onPointerLeave={() => !compactMediaPreview && setTitleVisibleForPath(null)}
               onFocus={() => !compactMediaPreview && setTitleVisibleForPath(mediaPreview.path)}
@@ -288,7 +289,7 @@ function MediaPreviewOverlay() {
                 }
               }}
             >
-              {mediaPreview.fileName}
+              {displayFileName}
             </button>
           </div>
           <UIButton
@@ -299,7 +300,7 @@ function MediaPreviewOverlay() {
             onClick={() => {
               const anchor = document.createElement("a")
               anchor.href = mediaPreview.url
-              anchor.download = mediaPreview.fileName
+               anchor.download = displayFileName
               anchor.rel = "noreferrer"
               document.body.appendChild(anchor)
               anchor.click()
@@ -340,7 +341,7 @@ function MediaPreviewOverlay() {
           {mediaPreview.kind === "image" ? (
             <img
               src={mediaPreview.url}
-              alt={mediaPreview.fileName}
+               alt={displayFileName}
               className="max-h-full max-w-full object-contain"
               onLoad={(event) => {
                 updateMediaPreviewLayout(

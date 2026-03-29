@@ -28,6 +28,7 @@ import { queryKeys } from "@/shared/lib/query-keys"
 import { useConnectionHealthQuery } from "@/shared/hooks/use-connection-health-query"
 import { useConnectionScope } from "@/shared/hooks/use-connection-scope"
 import { useI18n } from "@/shared/i18n"
+import { formatBackendText } from "@/shared/i18n/formatters"
 import { useConnectionStore } from "@/shared/store/connection-store"
 import { useLastVisitedRouteStore } from "@/shared/store/last-visited-route-store"
 import { usePageChromeStore } from "@/shared/store/page-chrome-store"
@@ -482,7 +483,7 @@ function RootLayout() {
         <div className="flex items-center justify-between gap-3">
           <span className="font-medium text-[color:var(--app-text-soft)]">{messages.app.rcloneVersionLabel()}:</span>
           <span className="font-bold text-[color:var(--app-text)]">
-            {lastServerInfo?.version ?? messages.common.unknown()}
+            {formatBackendText(lastServerInfo?.version, messages.common.unknown())}
           </span>
         </div>
         <div className="flex items-center justify-between gap-3">

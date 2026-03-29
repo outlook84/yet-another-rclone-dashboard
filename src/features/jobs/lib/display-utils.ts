@@ -17,6 +17,23 @@ function formatElapsedTime(value?: number, locale?: string) {
   return formatLocalizedDurationShort(value, locale as "en" | "zh-CN" | undefined)
 }
 
+function formatRate(value?: number, locale?: string) {
+  const formatted = formatBytes(value, locale)
+  return formatted === "-" ? "-" : `${formatted}/s`
+}
+
+function formatProgressPercent(value?: number) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null
+  }
+
+  const clamped = Math.min(Math.max(value, 0), 100)
+  return {
+    numeric: clamped,
+    label: `${Math.round(clamped)}%`,
+  }
+}
+
 function formatJobKind(value?: string) {
   if (!value) return "-"
   return value
@@ -47,11 +64,26 @@ function formatDateTime(value?: string, locale?: string) {
 
 function getCurrentThroughput(stats?: TransferStats) {
   if (!stats?.transferring?.length) {
-    return stats?.speed ?? 0
+    return Number.isFinite(stats?.speed) ? (stats?.speed ?? 0) : 0
   }
 
-  const currentSpeed = stats.transferring.reduce((total, item) => total + (item.speedAvg ?? item.speed ?? 0), 0)
-  return currentSpeed > 0 ? currentSpeed : stats.speed ?? 0
+  const currentSpeed = stats.transferring.reduce((total, item) => {
+    const speed = Number.isFinite(item.speedAvg) ? item.speedAvg : Number.isFinite(item.speed) ? item.speed : 0
+    return total + (speed ?? 0)
+  }, 0)
+  return currentSpeed > 0 ? currentSpeed : Number.isFinite(stats.speed) ? (stats.speed ?? 0) : 0
 }
 
-export { formatBytes, formatDateTime, formatElapsedTime, formatEta, formatJobKind, formatJobMessage, formatStatus, getCurrentThroughput, statusTone }
+export {
+  formatBytes,
+  formatDateTime,
+  formatElapsedTime,
+  formatEta,
+  formatJobKind,
+  formatJobMessage,
+  formatProgressPercent,
+  formatRate,
+  formatStatus,
+  getCurrentThroughput,
+  statusTone,
+}

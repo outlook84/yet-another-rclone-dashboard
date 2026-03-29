@@ -150,6 +150,53 @@ describe("OverviewPage", () => {
     expect(screen.getByText("core/stats(group=global_stats).lastError")).not.toBeNull()
   })
 
+  it("hides placeholder strings returned by the backend", () => {
+    useConnectionStore.setState({
+      baseUrl: "undefined",
+      authMode: "basic",
+      basicCredentials: {
+        username: "gui",
+        password: "secret",
+      },
+      lastValidatedAt: "2026-03-26T07:00:00.000Z",
+      lastServerInfo: {
+        product: "rclone",
+        version: " undefined ",
+        apiBaseUrl: "http://localhost:5572",
+      },
+    })
+
+    sharedGlobalStatsQueryMock.mockReturnValue({
+      data: {
+        stats: {
+          elapsedTime: 120,
+          transfers: 25,
+          bytes: 18 * 1024 * 1024 * 1024,
+          errors: 8,
+          deletes: 24,
+          transferring: [],
+        },
+        globalStats: {
+          lastError: " undefined ",
+        },
+      },
+      error: null,
+    })
+
+    renderWithProviders(<OverviewPage />)
+
+    expect(screen.getByText("Rclone Version").parentElement?.textContent).toContain("Unknown")
+    expect(screen.queryByText(" undefined ")).toBeNull()
+    expect(
+      screen.getByText((_, element) => {
+        return (
+          element?.tagName === "P" &&
+          (element.textContent?.includes("No recent errors. Waiting for") ?? false)
+        )
+      }),
+    ).not.toBeNull()
+  })
+
   it("does not keep rendering throughput samples older than the 5 minute window", () => {
     const staleSampleAt = fixedNow - 6 * 60 * 1000
 

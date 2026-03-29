@@ -4,6 +4,8 @@ import {
   formatEta,
   formatJobKind,
   formatJobMessage,
+  formatProgressPercent,
+  formatRate,
   formatStatus,
   getCurrentThroughput,
   statusTone,
@@ -13,6 +15,10 @@ describe("jobs display-utils", () => {
   it("formats bytes and eta", () => {
     expect(formatBytes(2048)).toBe("2.0 KB")
     expect(formatEta(125)).toBe("2m 5s")
+    expect(formatRate(2048)).toBe("2.0 KB/s")
+    expect(formatRate(Number.NaN)).toBe("-")
+    expect(formatProgressPercent(49.6)).toEqual({ numeric: 49.6, label: "50%" })
+    expect(formatProgressPercent(Number.NaN)).toBeNull()
   })
 
   it("formats job kind, status, and message", () => {
@@ -41,5 +47,11 @@ describe("jobs display-utils", () => {
     ).toBe(2048)
 
     expect(getCurrentThroughput({ speed: 512 })).toBe(512)
+    expect(
+      getCurrentThroughput({
+        speed: Number.NaN,
+        transferring: [{ speedAvg: Number.NaN, speed: Number.NaN }],
+      }),
+    ).toBe(0)
   })
 })

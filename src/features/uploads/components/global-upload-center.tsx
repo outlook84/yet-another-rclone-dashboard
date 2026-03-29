@@ -2,11 +2,15 @@ import { ChevronDown, Upload, X } from "lucide-react"
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { Button } from "@/shared/components/ui/button"
 import { useI18n } from "@/shared/i18n"
-import { formatLocalizedDurationShort } from "@/shared/i18n/formatters"
+import { formatBackendText, formatLocalizedDurationShort, hasBackendText } from "@/shared/i18n/formatters"
 import { formatBytes } from "@/features/explorer/lib/display-utils"
 import { useUploadCenterStore } from "@/features/uploads/store/upload-center-store"
 
 function clampProgress(value: number) {
+  if (!Number.isFinite(value)) {
+    return 0
+  }
+
   return Math.min(Math.max(value, 0), 1)
 }
 
@@ -134,13 +138,13 @@ function GlobalUploadCenter() {
                 <div key={task.id} className="border-b border-[color:var(--app-border)] px-4 py-3 last:border-b-0">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <div
-                        className="truncate text-sm font-bold text-[color:var(--app-text)]"
-                        title={fullLocationLabel}
-                        aria-label={fullLocationLabel}
-                      >
-                        {fullLocationLabel}
-                      </div>
+                        <div
+                          className="truncate text-sm font-bold text-[color:var(--app-text)]"
+                          title={fullLocationLabel}
+                          aria-label={fullLocationLabel}
+                        >
+                          {fullLocationLabel}
+                        </div>
                       <div className="mt-1 text-xs text-[color:var(--app-text-soft)]">
                         {messages.explorer.uploadTaskSummary(task.fileCount, statusLabel)}
                       </div>
@@ -211,8 +215,8 @@ function GlobalUploadCenter() {
                         {messages.explorer.waitingForProgress()}
                       </div>
                     ) : null}
-                    {task.errorMessage ? (
-                      <div className="text-xs text-[color:var(--app-danger-text)]">{task.errorMessage}</div>
+                    {hasBackendText(task.errorMessage ?? undefined) ? (
+                      <div className="text-xs text-[color:var(--app-danger-text)]">{formatBackendText(task.errorMessage ?? undefined)}</div>
                     ) : null}
                   </div>
                 </div>

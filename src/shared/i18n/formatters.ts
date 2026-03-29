@@ -1,7 +1,28 @@
 import type { AppLocale } from "@/shared/i18n/locale-store"
 
+function isFiniteNumber(value: number | undefined): value is number {
+  return typeof value === "number" && Number.isFinite(value)
+}
+
+function isPlaceholderText(value?: string) {
+  if (!value) {
+    return true
+  }
+
+  const normalized = value.trim().toLowerCase()
+  return normalized === "" || normalized === "undefined" || normalized === "null" || normalized === "nan"
+}
+
+function hasBackendText(value?: string): value is string {
+  return !isPlaceholderText(value)
+}
+
+function formatBackendText(value?: string, fallback = "-") {
+  return hasBackendText(value) ? value.trim() : fallback
+}
+
 function formatLocalizedNumber(value?: number, locale?: AppLocale) {
-  if (value === undefined || Number.isNaN(value)) {
+  if (!isFiniteNumber(value)) {
     return "-"
   }
 
@@ -9,7 +30,7 @@ function formatLocalizedNumber(value?: number, locale?: AppLocale) {
 }
 
 function formatLocalizedBytes(value?: number, locale?: AppLocale) {
-  if (value === undefined || Number.isNaN(value)) {
+  if (!isFiniteNumber(value) || value < 0) {
     return "-"
   }
 
@@ -29,7 +50,7 @@ function formatLocalizedBytes(value?: number, locale?: AppLocale) {
 }
 
 function formatLocalizedDurationShort(value?: number, locale?: AppLocale) {
-  if (value === undefined || value < 0 || Number.isNaN(value)) {
+  if (!isFiniteNumber(value) || value < 0) {
     return "-"
   }
 
@@ -53,13 +74,14 @@ function formatLocalizedDurationShort(value?: number, locale?: AppLocale) {
 }
 
 function formatLocalizedDateTime(value?: string, locale?: AppLocale) {
-  if (!value) {
+  if (typeof value !== "string" || isPlaceholderText(value)) {
     return "-"
   }
 
-  const date = new Date(value)
+  const safeValue = value.trim()
+  const date = new Date(safeValue)
   if (Number.isNaN(date.getTime())) {
-    return value
+    return "-"
   }
 
   return new Intl.DateTimeFormat(locale, {
@@ -74,13 +96,14 @@ function formatLocalizedDateTime(value?: string, locale?: AppLocale) {
 }
 
 function formatLocalizedCompactDateTime(value?: string, locale?: AppLocale) {
-  if (!value) {
+  if (typeof value !== "string" || isPlaceholderText(value)) {
     return "-"
   }
 
-  const date = new Date(value)
+  const safeValue = value.trim()
+  const date = new Date(safeValue)
   if (Number.isNaN(date.getTime())) {
-    return value
+    return "-"
   }
 
   void locale
@@ -94,9 +117,11 @@ function formatLocalizedCompactDateTime(value?: string, locale?: AppLocale) {
 }
 
 export {
+  formatBackendText,
   formatLocalizedBytes,
   formatLocalizedCompactDateTime,
   formatLocalizedDateTime,
   formatLocalizedDurationShort,
   formatLocalizedNumber,
+  hasBackendText,
 }

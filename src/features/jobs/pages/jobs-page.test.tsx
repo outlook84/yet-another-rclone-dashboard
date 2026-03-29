@@ -203,4 +203,54 @@ describe("JobsPage", () => {
     expect(screen.queryByText("Manual upload.bin")).toBeNull()
     expect(screen.getByText("1 group · 128 B/s")).not.toBeNull()
   })
+
+  it("does not render NaN percent or invalid timestamps for bad transfer stats", () => {
+    globalStatsQueryMock.mockReturnValue({
+      isLoading: false,
+      isFetching: false,
+      error: null,
+      data: {
+        stats: {
+          errors: 0,
+          deletes: 0,
+          elapsedTime: 18,
+          speed: Number.NaN,
+          transferring: [
+            {
+              group: "job/bad",
+              name: "folder/Bad.bin",
+              srcFs: "source:",
+              dstFs: "dest:/",
+              bytes: 10,
+              size: 20,
+              speed: Number.NaN,
+              eta: Number.NaN,
+              percentage: Number.NaN,
+            },
+          ],
+        },
+        mem: {
+          Alloc: 0,
+        },
+        transferred: [
+          {
+            name: "folder/Done.bin",
+            bytes: 10,
+            size: 20,
+            completedAt: "not-a-date",
+            error: "",
+            group: "job/bad",
+          },
+        ],
+      },
+      refetch: vi.fn(),
+    })
+
+    renderWithProviders(<JobsPage />)
+
+    expect(screen.queryByText("NaN%")).toBeNull()
+    expect(screen.queryByText("Invalid Date")).toBeNull()
+    expect(screen.getByText("Calculating")).not.toBeNull()
+    expect(screen.getAllByText("-").length).toBeGreaterThan(0)
+  })
 })

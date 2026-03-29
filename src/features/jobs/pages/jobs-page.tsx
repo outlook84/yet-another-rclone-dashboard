@@ -2,7 +2,7 @@ import { ChevronDown, Loader2 } from "lucide-react"
 import { useEffect, useState } from "react"
 import { useSharedGlobalStatsQuery } from "@/features/jobs/api/use-global-stats-query"
 import { useStopJobMutation } from "@/features/jobs/api/use-stop-job-mutation"
-import { formatBytes, formatEta, getCurrentThroughput } from "@/features/jobs/lib/display-utils"
+import { formatBytes, formatDateTime, formatEta, formatProgressPercent, formatRate, getCurrentThroughput } from "@/features/jobs/lib/display-utils"
 import { buildGroupDisplayModel, buildTransferDisplayModel, compareTransferDatesDesc } from "@/features/jobs/lib/transfer-display"
 import { MutationFeedbacks } from "@/shared/components/mutation-feedbacks"
 import { PageShell } from "@/shared/components/page-shell"
@@ -15,6 +15,7 @@ import { EmptyState } from "@/shared/components/empty-state"
 import { Table, TableCell, TableHead, TableHeadRow, TableRow, TableScroll } from "@/shared/components/ui/table"
 import { useMediaQuery } from "@/shared/hooks/use-media-query"
 import { useI18n } from "@/shared/i18n"
+import { formatBackendText, hasBackendText } from "@/shared/i18n/formatters"
 import { cn } from "@/shared/lib/cn"
 
 type PastTransfersFilter = "all" | "completed" | "failed"
@@ -98,7 +99,7 @@ function JobsPage() {
   const hasRunningJobs = transferGroups.length > 0
   const currentThroughput = hasRunningJobs ? getCurrentThroughput(statsData) : 0
   const headerSummary = hasRunningJobs
-    ? messages.jobs.activeTransferSummary(transferGroups.length, `${formatBytes(currentThroughput, locale)}/s`)
+    ? messages.jobs.activeTransferSummary(transferGroups.length, formatRate(currentThroughput, locale))
     : messages.jobs.idleSummary()
   const [activeTransfersExpanded, setActiveTransfersExpanded] = useState(hasRunningJobs)
   const transferredItems = [...(globalQuery.data?.transferred ?? [])].sort((left, right) => {
@@ -243,6 +244,7 @@ function JobsPage() {
                                 const progressValue =
                                   item.percentage ??
                                   (item.size && item.bytes ? Math.min((item.bytes / item.size) * 100, 100) : undefined)
+                                const progress = formatProgressPercent(progressValue)
                                 const itemDisplay = buildTransferDisplayModel(item)
 
                                 return (
@@ -265,18 +267,18 @@ function JobsPage() {
                                         <div className="h-2.5 overflow-hidden rounded-[999px] bg-[color:var(--app-hover-surface)]">
                                           <div
                                             className="h-full rounded-[999px] bg-[color:var(--app-accent)]"
-                                            style={{ width: `${progressValue ?? 0}%` }}
+                                            style={{ width: `${progress?.numeric ?? 0}%` }}
                                           />
                                         </div>
                                         <div className="mt-1 text-[13px] text-[color:var(--app-text-soft)]">
-                                          {progressValue !== undefined ? `${Math.round(progressValue)}%` : messages.jobs.calculating()}
+                                          {progress?.label ?? messages.jobs.calculating()}
                                         </div>
                                       </div>
                                     </TableCell>
                                     <TableCell className="py-3 pr-4 whitespace-nowrap">
                                       {formatBytes(item.bytes, locale)} / {formatBytes(item.size, locale)}
                                     </TableCell>
-                                    <TableCell className="py-3 pr-4 whitespace-nowrap">{formatBytes(item.speed, locale)}/s</TableCell>
+                                    <TableCell className="py-3 pr-4 whitespace-nowrap">{formatRate(item.speed, locale)}</TableCell>
                                     <TableCell className="py-3 whitespace-nowrap">{formatEta(item.eta, locale)}</TableCell>
                                   </TableRow>
                                 )
@@ -388,13 +390,13 @@ function JobsPage() {
                              expandedClassName="mt-1 text-left whitespace-normal break-all text-xs text-[color:var(--app-text-soft)]"
                           />
                         ) : null}
-                        {item.error ? (
-                          <ExpandableText
-                            compact={compactText}
-                            value={item.error}
-                            collapsedClassName="mt-2 truncate text-sm text-[color:var(--app-danger-text-strong)]"
-                            expandedClassName="mt-2 text-left whitespace-normal break-words text-sm text-[color:var(--app-danger-text-strong)]"
-                          />
+                         {hasBackendText(item.error) ? (
+                           <ExpandableText
+                             compact={compactText}
+                             value={formatBackendText(item.error)}
+                             collapsedClassName="mt-2 truncate text-sm text-[color:var(--app-danger-text-strong)]"
+                             expandedClassName="mt-2 text-left whitespace-normal break-words text-sm text-[color:var(--app-danger-text-strong)]"
+                           />
                         ) : null}
                       </div>
                       <div className="flex shrink-0 flex-col gap-1 text-sm text-[color:var(--app-text-soft)] md:items-end">
@@ -403,7 +405,7 @@ function JobsPage() {
                         </div>
                         {item.completedAt ? (
                           <div className="whitespace-nowrap">
-                            {messages.jobs.completedAt()} / {new Date(item.completedAt).toLocaleString(locale)}
+                            {messages.jobs.completedAt()} / {formatDateTime(item.completedAt, locale)}
                           </div>
                         ) : null}
                       </div>

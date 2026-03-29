@@ -145,4 +145,5 @@ describe("MountsPage", () => {
       expect(mutateAsync).toHaveBeenCalledWith("/mnt/demo")
     })
   })
+
 })
