@@ -146,7 +146,7 @@ describe("ExplorerPage", () => {
   }
 
   function getScrollContainer(view: RenderResult) {
-    const scrollContainer = view.container.querySelector('div[style*="max-height: 600px"]') as HTMLDivElement | null
+    const scrollContainer = view.getByTestId("explorer-scroll-container") as HTMLDivElement | null
     if (!scrollContainer) {
       throw new Error("scroll container not found")
     }

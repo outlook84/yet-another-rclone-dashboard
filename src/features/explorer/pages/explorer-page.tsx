@@ -786,9 +786,9 @@ function ExplorerPage() {
       hideBadge
       hideHeader
       bareContent
-      contentStyle={{ paddingTop: 4 }}
+      contentStyle={{ paddingTop: 4, height: "100%", minHeight: 0 }}
     >
-      <div className="app-page-stack">
+      <div className="app-page-stack flex h-full min-h-0 flex-col">
         {compactHeader && headerStorage ? (
           <div style={{ width: compactHeader ? "100%" : 320, maxWidth: "100%" }}>{headerStorage}</div>
         ) : null}
@@ -1551,10 +1551,10 @@ function ExplorerPage() {
         ) : null}
         {explorerQuery.data ? (
           visibleItems.length > 0 ? (
-            <div className="flex flex-col gap-3">
-              <TableShell className="p-0 app-explorer-table">
+            <div className="flex min-h-0 flex-1 flex-col gap-3">
+              <TableShell className="app-explorer-table flex min-h-0 flex-1 flex-col p-0">
                 {/* Sticky table header */}
-                <div className="overflow-x-auto overflow-y-auto bg-[color:var(--app-table-head-bg)]" style={{ scrollbarGutter: "stable" }}>
+                <div className="overflow-x-auto bg-[color:var(--app-table-head-bg)]" style={{ scrollbarGutter: "stable" }}>
                   <Table style={{ tableLayout: "fixed", width: "100%" }}>
                     <thead>
                       <TableHeadRow>
@@ -1625,8 +1625,9 @@ function ExplorerPage() {
                 {/* Virtualized body — only renders rows in the visible viewport */}
                 <div
                   ref={scrollContainerRef}
-                  className="overflow-x-auto overflow-y-auto"
-                  style={{ maxHeight: 600, scrollbarGutter: "stable" }}
+                  data-testid="explorer-scroll-container"
+                  className="min-h-0 flex-1 overflow-x-auto overflow-y-auto"
+                  style={{ scrollbarGutter: "stable" }}
                 >
                   {/* Spacer that tells the browser the full scrollable height */}
                   <div style={{ height: virtualizer.getTotalSize(), position: "relative", width: "100%" }}>

@@ -616,7 +616,7 @@ function RootLayout() {
           <nav className="app-fade-in app-shell-sidebar-nav">{navList}</nav>
         </aside>
         <main className="app-shell-main">
-          <div className="app-fade-in mx-auto max-w-[1400px]">
+          <div className="app-fade-in mx-auto flex h-full min-h-0 w-full max-w-[1400px] flex-col">
             <Outlet />
           </div>
         </main>
