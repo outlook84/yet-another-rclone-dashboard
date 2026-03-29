@@ -46,6 +46,7 @@ describe("createAppApiClient", () => {
         copyDir: vi.fn(),
         moveDir: vi.fn(),
         syncDir: vi.fn(),
+        uploadFiles: vi.fn(),
       },
       jobs: {
         list: vi.fn(),

@@ -1,6 +1,6 @@
 import { IconArrowUp, IconChevronDown, IconColumns, IconCopy, IconDotsVertical, IconFile, IconFolderFilled, IconHome, IconPencil, IconPlus, IconRefresh, IconX } from "@tabler/icons-react"
 import { Loader2 } from "lucide-react"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { useExplorerCopyDirMutation } from "@/features/explorer/api/use-explorer-copy-dir-mutation"
 import { useRemotesQuery } from "@/features/remotes/api/use-remotes-query"
@@ -54,6 +54,7 @@ import { useMediaQuery } from "@/shared/hooks/use-media-query"
 import { cn } from "@/shared/lib/cn"
 import { useConnectionStore } from "@/shared/store/connection-store"
 import { usePageChromeStore } from "@/shared/store/page-chrome-store"
+import { startManagedUpload } from "@/features/uploads/lib/upload-manager"
 import {
   useExplorerUIStore,
   type MediaPreviewLayout,
@@ -145,6 +146,7 @@ function ExplorerPage() {
   const [showFilterInput, setShowFilterInput] = useState(false)
   const [hoveredTabId, setHoveredTabId] = useState<string | null>(null)
   const [mobileSessionsOpened, setMobileSessionsOpened] = useState(false)
+  const uploadInputRef = useRef<HTMLInputElement | null>(null)
   const setInspectDirectoryPaths = useExplorerUIStore((state) => state.setInspectDirectoryPaths)
   const setSelectionModes = useExplorerUIStore((state) => state.setSelectionModes)
   const setSelectedPathsByTab = useExplorerUIStore((state) => state.setSelectedPathsByTab)
@@ -734,6 +736,22 @@ function ExplorerPage() {
     </>
   )
 
+  const handleUploadFileSelection = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    const nextFiles = Array.from(event.currentTarget.files ?? [])
+    const inputElement = event.currentTarget
+    if (nextFiles.length === 0 || !currentRemote) {
+      return
+    }
+
+    void startManagedUpload({
+      remote: currentRemote,
+      path: currentPath,
+      files: nextFiles,
+    })
+
+    inputElement.value = ""
+  }, [currentPath, currentRemote])
+
   useEffect(() => {
     if (compactHeader) {
       setHeaderContent(null)
@@ -976,6 +994,21 @@ function ExplorerPage() {
                   </div>
                 ) : null}
                 <div className="app-toolbar-actions gap-1.5">
+                  <input
+                    ref={uploadInputRef}
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={handleUploadFileSelection}
+                  />
+                  <UIButton
+                    variant="toolbar"
+                    size="toolbar"
+                    disabled={!currentRemote}
+                    onClick={() => uploadInputRef.current?.click()}
+                  >
+                    {messages.explorer.upload()}
+                  </UIButton>
                   <UIButton
                     variant={showNewDirectoryInput ? "default" : "toolbar"}
                     size="toolbar"

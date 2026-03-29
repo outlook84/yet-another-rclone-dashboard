@@ -357,7 +357,7 @@ function SettingsPage() {
                 </label>
               </div>
 
-              <div className="hidden md:flex flex-wrap items-center justify-end gap-3">
+              <div className="hidden md:flex flex-wrap items-center justify-start gap-3 pt-3">
                 {actionButtons}
               </div>
             </div>

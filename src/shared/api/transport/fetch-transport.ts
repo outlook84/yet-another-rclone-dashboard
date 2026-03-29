@@ -17,28 +17,34 @@ class FetchTransport implements ApiTransport {
   }
 
   async request<T>(input: TransportRequest): Promise<T> {
+    const headers = { ...(input.headers ?? {}) }
     const init: RequestInit = {
       method: input.method,
       signal: input.signal,
-      headers: {
-        "Content-Type": "application/json",
-        ...input.headers,
-      },
+      headers,
     }
 
     if (input.body !== undefined) {
-      init.body = JSON.stringify(input.body)
+      if (input.body instanceof FormData) {
+        init.body = input.body
+      } else {
+        headers["Content-Type"] ??= "application/json"
+        init.body = JSON.stringify(input.body)
+      }
     }
 
     const authedInit = await this.authStrategy.apply(init)
-    const timeoutMs = input.timeoutMs ?? 15000 // 15 seconds timeout by default
+    const timeoutMs = input.timeoutMs === undefined ? 15000 : input.timeoutMs
 
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+    const timeoutId =
+      timeoutMs === null ? null : setTimeout(() => controller.abort(), timeoutMs)
 
     if (init.signal) {
       init.signal.addEventListener("abort", () => {
-        clearTimeout(timeoutId)
+        if (timeoutId !== null) {
+          clearTimeout(timeoutId)
+        }
         controller.abort()
       })
     }
@@ -64,7 +70,9 @@ class FetchTransport implements ApiTransport {
         cause,
       })
     } finally {
-      clearTimeout(timeoutId)
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId)
+      }
     }
 
     const payload = await response

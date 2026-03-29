@@ -92,6 +92,11 @@ export interface PublicLinkResult {
   url: string
 }
 
+export interface UploadFilesInput {
+  dst: DirTarget
+  files: File[]
+}
+
 export interface ExplorerApi {
   list(location: RemoteLocation, options?: ListOptions): Promise<ListResult>
   stat(location: RemoteLocation, options?: ListOptions): Promise<ExplorerStatResult>
@@ -107,5 +112,6 @@ export interface ExplorerApi {
   copyDir(input: CopyDirInput): Promise<JobHandle | void>
   moveDir(input: MoveDirInput): Promise<JobHandle | void>
   syncDir(input: SyncDirInput): Promise<JobHandle | void>
+  uploadFiles(input: UploadFilesInput): Promise<void>
   publicLink?(target: FileTarget): Promise<PublicLinkResult>
 }

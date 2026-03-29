@@ -167,4 +167,28 @@ describe("RcloneRcExplorerApi", () => {
       api.publicLink({ remote: "demo", path: "docs/readme.md" }),
     ).rejects.toThrow("did not return a url")
   })
+
+  it("uploads files with multipart form data to operations/uploadfile", async () => {
+    const transport = createTransport(async (input) => {
+      expect(input.method).toBe("POST")
+      expect(input.path).toBe("operations/uploadfile?fs=demo%3A&remote=folder%2Fnested")
+      expect(input.timeoutMs).toBeNull()
+      expect(input.body).toBeInstanceOf(FormData)
+
+      const body = input.body as FormData
+      expect(body.get("file0")).toBeInstanceOf(File)
+      expect((body.get("file0") as File).name).toBe("demo.txt")
+
+      return undefined
+    })
+
+    const api = new RcloneRcExplorerApi(transport)
+
+    await expect(
+      api.uploadFiles({
+        dst: { remote: "demo", path: "folder/nested" },
+        files: [new File(["hello"], "demo.txt", { type: "text/plain" })],
+      }),
+    ).resolves.toBeUndefined()
+  })
 })

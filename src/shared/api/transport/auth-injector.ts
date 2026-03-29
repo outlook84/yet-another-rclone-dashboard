@@ -1,4 +1,4 @@
-import type { AuthStrategy, BasicCredentials } from "@/shared/api/contracts/auth"
+import type { AuthMode, AuthStrategy, BasicCredentials } from "@/shared/api/contracts/auth"
 
 class NoAuthStrategy implements AuthStrategy {
   mode = "none" as const
@@ -28,4 +28,21 @@ class BasicAuthStrategy implements AuthStrategy {
   }
 }
 
-export { NoAuthStrategy, BasicAuthStrategy }
+function createAuthStrategy(authMode: AuthMode, basicCredentials: BasicCredentials): AuthStrategy {
+  return authMode === "basic" ? new BasicAuthStrategy(basicCredentials) : new NoAuthStrategy()
+}
+
+async function applyAuthStrategyToXhr(xhr: XMLHttpRequest, authStrategy: AuthStrategy) {
+  const init = await authStrategy.apply({})
+  const headers = new Headers(init.headers)
+
+  headers.forEach((value, key) => {
+    xhr.setRequestHeader(key, value)
+  })
+
+  if (init.credentials === "include") {
+    xhr.withCredentials = true
+  }
+}
+
+export { NoAuthStrategy, BasicAuthStrategy, createAuthStrategy, applyAuthStrategyToXhr }

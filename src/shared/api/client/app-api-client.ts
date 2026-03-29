@@ -3,7 +3,7 @@ import type { AuthMode, BasicCredentials } from "@/shared/api/contracts/auth"
 import { DisabledMountApi } from "@/shared/api/adapters/rclone-rc/disabled-mount-api"
 import { RcloneRcJobApi } from "@/shared/api/adapters/rclone-rc/job-api"
 import { RcloneRcSessionApi } from "@/shared/api/adapters/rclone-rc/session-api"
-import { NoAuthStrategy, BasicAuthStrategy } from "@/shared/api/transport/auth-injector"
+import { createAuthStrategy } from "@/shared/api/transport/auth-injector"
 import type { BackendAdapter } from "@/shared/api/adapters/backend-adapter"
 import type { ExplorerApi } from "@/shared/api/contracts/explorer"
 import type { MountApi } from "@/shared/api/contracts/mounts"
@@ -31,10 +31,7 @@ interface RcloneRcClientOptions {
 }
 
 function createRcloneRcAppApiClient(options: RcloneRcClientOptions): AppApiClient {
-  const authStrategy =
-    options.authMode === "basic"
-      ? new BasicAuthStrategy(options.basicCredentials)
-      : new NoAuthStrategy()
+  const authStrategy = createAuthStrategy(options.authMode, options.basicCredentials)
 
   const transport = new FetchTransport({
     baseUrl: options.baseUrl,
@@ -133,6 +130,9 @@ function createRcloneRcAppApiClient(options: RcloneRcClientOptions): AppApiClien
     },
     async syncDir(input) {
       return (await loadExplorer()).syncDir(input)
+    },
+    async uploadFiles(input) {
+      return (await loadExplorer()).uploadFiles(input)
     },
     async publicLink(target) {
       const api = await loadExplorer()

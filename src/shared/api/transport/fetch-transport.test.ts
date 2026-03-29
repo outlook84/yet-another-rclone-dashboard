@@ -125,4 +125,36 @@ describe("FetchTransport", () => {
       }),
     )
   })
+
+  it("passes FormData through without forcing a JSON content type", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockRejectedValue(new Error("no json")),
+    })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const transport = new FetchTransport({
+      baseUrl: "http://localhost:5572",
+      authStrategy: {
+        mode: "none",
+        apply: async (init) => init,
+      },
+    })
+
+    const body = new FormData()
+    body.append("file0", new File(["demo"], "demo.txt", { type: "text/plain" }))
+
+    await expect(
+      transport.request({
+        method: "POST",
+        path: "operations/uploadfile",
+        body,
+        timeoutMs: null,
+      }),
+    ).resolves.toBeUndefined()
+
+    const [, init] = fetchMock.mock.calls[0]!
+    expect(init?.body).toBe(body)
+    expect(init?.headers).toEqual({})
+  })
 })

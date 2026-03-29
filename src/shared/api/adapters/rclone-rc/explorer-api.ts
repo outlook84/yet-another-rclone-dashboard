@@ -13,6 +13,7 @@ import type {
   PublicLinkResult,
   RemoteLocation,
   SyncDirInput,
+  UploadFilesInput,
   UsageInfo,
 } from "@/shared/api/contracts/explorer"
 import type { ApiTransport } from "@/shared/api/transport/api-transport"
@@ -208,6 +209,21 @@ class RcloneRcExplorerApi implements ExplorerApi {
     })
 
     return response.jobid ? { jobId: response.jobid } : undefined
+  }
+
+  async uploadFiles(input: UploadFilesInput): Promise<void> {
+    const formData = new FormData()
+
+    input.files.forEach((file, index) => {
+      formData.append(`file${index}`, file)
+    })
+
+    await this.transport.request<void>({
+      method: "POST",
+      path: `operations/uploadfile?fs=${encodeURIComponent(`${input.dst.remote}:`)}&remote=${encodeURIComponent(input.dst.path)}`,
+      body: formData,
+      timeoutMs: null,
+    })
   }
 
   async publicLink(target: FileTarget): Promise<PublicLinkResult> {

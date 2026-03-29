@@ -19,6 +19,7 @@ import {
 import { useStatsPollingStore } from "@/features/jobs/store/stats-polling-store"
 import { MediaPreviewOverlay } from "@/features/explorer/components/media-preview-overlay"
 import { useExplorerUIStore } from "@/features/explorer/store/explorer-ui-store"
+import { GlobalUploadCenter } from "@/features/uploads/components/global-upload-center"
 import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
 import { NativeSelect } from "@/shared/components/ui/native-select"
@@ -621,6 +622,7 @@ function RootLayout() {
       </div>
 
       <MediaPreviewOverlay />
+      <GlobalUploadCenter />
 
       {opened ? (
         <div className="fixed inset-0 z-50 md:hidden">

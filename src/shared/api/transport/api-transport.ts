@@ -4,7 +4,7 @@ export interface TransportRequest {
   body?: unknown
   signal?: AbortSignal
   headers?: Record<string, string>
-  timeoutMs?: number
+  timeoutMs?: number | null
 }
 
 export interface ApiTransport {

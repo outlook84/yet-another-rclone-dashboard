@@ -15,6 +15,7 @@ const explorerListQueryMock = vi.fn()
 const fsInfoQueryMock = vi.fn()
 const usageQueryMock = vi.fn()
 const mkdirMutationMock = vi.fn()
+const uploadMutationMock = vi.fn()
 const batchMutationMock = vi.fn()
 const deleteFileMutationMock = vi.fn()
 const deleteDirMutationMock = vi.fn()
@@ -24,6 +25,7 @@ const moveDirMutationMock = vi.fn()
 const moveFileMutationMock = vi.fn()
 const publicLinkMutationMock = vi.fn()
 const rcServeAvailabilityQueryMock = vi.fn()
+const startManagedUploadMock = vi.fn()
 
 vi.mock("@/features/remotes/api/use-remotes-query", () => ({
   useRemotesQuery: () => remotesQueryMock(),
@@ -43,6 +45,10 @@ vi.mock("@/features/explorer/api/use-explorer-usage-query", () => ({
 
 vi.mock("@/features/explorer/api/use-explorer-mkdir-mutation", () => ({
   useExplorerMkdirMutation: () => mkdirMutationMock(),
+}))
+
+vi.mock("@/features/explorer/api/use-explorer-upload-mutation", () => ({
+  useExplorerUploadMutation: () => uploadMutationMock(),
 }))
 
 vi.mock("@/features/explorer/api/use-explorer-batch-mutation", () => ({
@@ -79,6 +85,10 @@ vi.mock("@/features/explorer/api/use-explorer-public-link-mutation", () => ({
 
 vi.mock("@/features/explorer/api/use-rc-serve-availability-query", () => ({
   useRcServeAvailabilityQuery: () => rcServeAvailabilityQueryMock(),
+}))
+
+vi.mock("@/features/uploads/lib/upload-manager", () => ({
+  startManagedUpload: (...args: unknown[]) => startManagedUploadMock(...args),
 }))
 
 // In jsdom there are no real scroll container dimensions, so useVirtualizer
@@ -121,6 +131,7 @@ describe("ExplorerPage", () => {
   })
 
   beforeEach(() => {
+    startManagedUploadMock.mockReset()
     setMatchMedia({})
     useExplorerUIStore.setState({
       scopeKey: null,
@@ -214,6 +225,14 @@ describe("ExplorerPage", () => {
     })
 
     mkdirMutationMock.mockReturnValue({
+      isPending: false,
+      isSuccess: false,
+      error: null,
+      variables: undefined,
+      mutateAsync: vi.fn(),
+    })
+
+    uploadMutationMock.mockReturnValue({
       isPending: false,
       isSuccess: false,
       error: null,
@@ -906,6 +925,42 @@ describe("ExplorerPage", () => {
 
     const clickedAnchor = HTMLAnchorElement.prototype.click as unknown as ReturnType<typeof vi.fn>
     expect(clickedAnchor).toHaveBeenCalledTimes(2)
+  })
+
+  it("starts a managed upload with the current explorer location after file selection", async () => {
+    renderWithProviders(<ExplorerPage />)
+
+    const inputClickSpy = vi.spyOn(HTMLInputElement.prototype, "click")
+
+    fireEvent.click(screen.getByRole("button", { name: "Upload" }))
+
+    expect(inputClickSpy).toHaveBeenCalled()
+
+    const uploadInput = document.querySelector('input[type="file"]')
+    if (!(uploadInput instanceof HTMLInputElement)) {
+      throw new Error("upload input not found")
+    }
+
+    const files = [
+      new File(["hello"], "first.txt", { type: "text/plain" }),
+      new File(["world"], "second.txt", { type: "text/plain" }),
+    ]
+
+    fireEvent.change(uploadInput, {
+      target: {
+        files,
+      },
+    })
+
+    await waitFor(() => {
+      expect(startManagedUploadMock).toHaveBeenCalledWith({
+        remote: "demo",
+        path: "folder",
+        files,
+      })
+    })
+
+    expect(uploadInput.value).toBe("")
   })
 
   it("hides bulk download actions on compact mobile toolbars", () => {
