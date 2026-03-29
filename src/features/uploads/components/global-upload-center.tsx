@@ -1,10 +1,17 @@
-import { ChevronDown, Upload, X } from "lucide-react"
+import { ChevronDown, ChevronUp, X } from "lucide-react"
+import { useEffect } from "react"
+import { useExplorerUIStore } from "@/features/explorer/store/explorer-ui-store"
 import { Card, CardContent } from "@/shared/components/ui/card"
 import { Button } from "@/shared/components/ui/button"
+import { useMediaQuery } from "@/shared/hooks/use-media-query"
 import { useI18n } from "@/shared/i18n"
 import { formatBackendText, formatLocalizedDurationShort, hasBackendText } from "@/shared/i18n/formatters"
 import { formatBytes } from "@/features/explorer/lib/display-utils"
 import { useUploadCenterStore } from "@/features/uploads/store/upload-center-store"
+
+const UPLOAD_CENTER_MARGIN = 16
+const UPLOAD_CENTER_PREVIEW_GAP = 12
+const MINIMIZED_MEDIA_PREVIEW_HEIGHT = 40
 
 function clampProgress(value: number) {
   if (!Number.isFinite(value)) {
@@ -47,6 +54,15 @@ function getUploadSpeedBytesPerSecond(startedAt: string, uploadedBytes: number, 
 
 function GlobalUploadCenter() {
   const { locale, messages } = useI18n()
+  const compactMediaPreview = useMediaQuery("(max-width: 48em)")
+  const mediaPreview = useExplorerUIStore((state) =>
+    state.scopeKey ? state.actionsByScope[state.scopeKey]?.mediaPreview ?? null : null,
+  )
+  const mediaPreviewMinimized = useExplorerUIStore((state) =>
+    state.scopeKey ? state.actionsByScope[state.scopeKey]?.mediaPreviewMinimized ?? false : false,
+  )
+  const mediaPreviewSizes = useExplorerUIStore((state) => state.mediaPreviewSizes)
+  const setMediaPreviewMinimized = useExplorerUIStore((state) => state.setMediaPreviewMinimized)
   const tasks = useUploadCenterStore((state) => state.tasks)
   const collapsed = useUploadCenterStore((state) => state.collapsed)
   const collapse = useUploadCenterStore((state) => state.collapse)
@@ -54,23 +70,49 @@ function GlobalUploadCenter() {
   const cancelTask = useUploadCenterStore((state) => state.cancelTask)
   const removeTask = useUploadCenterStore((state) => state.removeTask)
   const clearCompletedTasks = useUploadCenterStore((state) => state.clearCompletedTasks)
+  const activeCount = tasks.filter((task) => task.status === "uploading").length
+  const completedCount = tasks.filter((task) => task.status === "success").length
+  const bottomOffset =
+    mediaPreview
+      ? mediaPreviewMinimized
+        ? UPLOAD_CENTER_MARGIN + MINIMIZED_MEDIA_PREVIEW_HEIGHT + UPLOAD_CENTER_PREVIEW_GAP
+        : !compactMediaPreview
+          ? UPLOAD_CENTER_MARGIN + mediaPreviewSizes[mediaPreview.layout].height + UPLOAD_CENTER_PREVIEW_GAP
+          : UPLOAD_CENTER_MARGIN
+      : UPLOAD_CENTER_MARGIN
+  const floatingPositionStyle = {
+    bottom: `${bottomOffset}px`,
+    right: `${UPLOAD_CENTER_MARGIN}px`,
+  }
+
+  useEffect(() => {
+    if (!collapsed && mediaPreview && !compactMediaPreview && !mediaPreviewMinimized) {
+      setMediaPreviewMinimized(true)
+    }
+  }, [collapsed, compactMediaPreview, mediaPreview, mediaPreviewMinimized, setMediaPreviewMinimized])
 
   if (tasks.length === 0) {
     return null
   }
 
-  const activeCount = tasks.filter((task) => task.status === "uploading").length
-  const completedCount = tasks.filter((task) => task.status === "success").length
+  if (compactMediaPreview && mediaPreview && !mediaPreviewMinimized) {
+    return null
+  }
 
   if (collapsed) {
     return (
-      <div className="fixed bottom-4 right-4 z-40">
+      <div className="fixed z-40" style={floatingPositionStyle}>
         <Button
           variant="secondary"
           className="h-10 rounded-full border border-[color:var(--app-border)] px-4 shadow-[0_14px_30px_rgba(0,0,0,0.12)]"
-          onClick={expand}
+          onClick={() => {
+            if (mediaPreview && !compactMediaPreview && !mediaPreviewMinimized) {
+              setMediaPreviewMinimized(true)
+            }
+            expand()
+          }}
         >
-          <Upload className="mr-2 h-4 w-4" />
+          <ChevronUp className="mr-2 h-4 w-4" />
           {messages.explorer.showUploads(activeCount, tasks.length)}
         </Button>
       </div>
@@ -78,7 +120,7 @@ function GlobalUploadCenter() {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 z-40 w-[min(420px,calc(100vw-2rem))]">
+    <div className="fixed z-40 w-[min(420px,calc(100vw-2rem))]" style={floatingPositionStyle}>
       <Card className="border-[color:var(--app-border)] shadow-[0_20px_48px_rgba(0,0,0,0.16)]">
         <CardContent className="p-0">
           <div className="flex items-center justify-between gap-3 border-b border-[color:var(--app-border)] px-4 py-3">

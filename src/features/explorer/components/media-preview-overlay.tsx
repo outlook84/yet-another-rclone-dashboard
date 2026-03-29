@@ -1,4 +1,4 @@
-import { IconDownload, IconX } from "@tabler/icons-react"
+import { IconDownload, IconMinus, IconPhoto, IconPlayerPlay, IconWaveSine, IconX } from "@tabler/icons-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button as UIButton } from "@/shared/components/ui/button"
 import { useMediaQuery } from "@/shared/hooks/use-media-query"
@@ -9,8 +9,11 @@ import {
   type MediaPreviewLayout,
   type MediaPreviewState,
 } from "@/features/explorer/store/explorer-ui-store"
+import { useUploadCenterStore } from "@/features/uploads/store/upload-center-store"
 
 const MEDIA_PREVIEW_MARGIN = 16
+const MEDIA_PREVIEW_MINIMIZED_HEIGHT = 40
+const MEDIA_PREVIEW_MINIMIZED_WIDTH = 240
 const MIN_MEDIA_PREVIEW_WIDTH = 320
 const MAX_MEDIA_PREVIEW_WIDTH = 960
 const MIN_MEDIA_PREVIEW_HEIGHT = 220
@@ -78,6 +81,18 @@ function getMediaPreviewLayoutFromDimensions(
   return isPortrait ? "video-portrait" : "video-landscape"
 }
 
+function MinimizedRestoreIcon({ kind }: { kind: NonNullable<MediaPreviewState>["kind"] }) {
+  if (kind === "image") {
+    return <IconPhoto size={14} stroke={1.8} />
+  }
+
+  if (kind === "audio") {
+    return <IconWaveSine size={14} stroke={1.8} />
+  }
+
+  return <IconPlayerPlay size={14} stroke={1.8} />
+}
+
 function MediaPreviewOverlay() {
   const { messages } = useI18n()
   const compactMediaPreview = useMediaQuery("(max-width: 48em)")
@@ -86,8 +101,13 @@ function MediaPreviewOverlay() {
   )
   const displayFileName = mediaPreview?.fileName ?? ""
   const setMediaPreview = useExplorerUIStore((state) => state.setMediaPreview)
+  const mediaPreviewMinimized = useExplorerUIStore((state) =>
+    state.scopeKey ? state.actionsByScope[state.scopeKey]?.mediaPreviewMinimized ?? false : false,
+  )
+  const setMediaPreviewMinimized = useExplorerUIStore((state) => state.setMediaPreviewMinimized)
   const mediaPreviewSizes = useExplorerUIStore((state) => state.mediaPreviewSizes)
   const setMediaPreviewSize = useExplorerUIStore((state) => state.setMediaPreviewSize)
+  const setUploadCenterCollapsed = useUploadCenterStore((state) => state.setCollapsed)
   const [titleVisibleForPath, setTitleVisibleForPath] = useState<string | null>(null)
   const mediaPreviewResizeStateRef = useRef<{
     pointerId: number
@@ -222,6 +242,60 @@ function MediaPreviewOverlay() {
 
   const isMediaPreviewTitleVisible = !compactMediaPreview && titleVisibleForPath === mediaPreview.path
 
+  if (mediaPreviewMinimized) {
+    return (
+      <div
+        className="pointer-events-none fixed z-40"
+        style={{
+          right: MEDIA_PREVIEW_MARGIN,
+          bottom: MEDIA_PREVIEW_MARGIN,
+          width: MEDIA_PREVIEW_MINIMIZED_WIDTH,
+          maxWidth: `calc(100vw - ${MEDIA_PREVIEW_MARGIN * 2}px)`,
+          height: MEDIA_PREVIEW_MINIMIZED_HEIGHT,
+        }}
+      >
+        <div className="pointer-events-auto flex h-full items-center gap-2 rounded-full border border-[color:var(--app-border)] bg-[color:var(--app-sheet-bg)] px-3 shadow-[0_18px_40px_rgba(8,15,28,0.28)]">
+          <button
+            type="button"
+            className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-left text-sm font-bold text-[color:var(--app-text)]"
+            aria-label={messages.explorer.restorePreview()}
+            title={displayFileName}
+            onClick={() => {
+              setUploadCenterCollapsed(true)
+              setMediaPreviewMinimized(false)
+            }}
+          >
+            {displayFileName}
+          </button>
+          <UIButton
+            size="icon-xs"
+            variant="ghost"
+            aria-label={messages.explorer.restorePreview()}
+            title={messages.explorer.restorePreview()}
+            onClick={() => {
+              setUploadCenterCollapsed(true)
+              setMediaPreviewMinimized(false)
+            }}
+          >
+            <MinimizedRestoreIcon kind={mediaPreview.kind} />
+          </UIButton>
+          <UIButton
+            size="icon-xs"
+            variant="ghost"
+            aria-label={messages.common.close()}
+            title={messages.common.close()}
+            onClick={() => {
+              setTitleVisibleForPath(null)
+              setMediaPreview(null)
+            }}
+          >
+            <IconX size={14} stroke={1.8} />
+          </UIButton>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div
       className={cn(
@@ -292,6 +366,18 @@ function MediaPreviewOverlay() {
               {displayFileName}
             </button>
           </div>
+          <UIButton
+            size="icon-xs"
+            variant="ghost"
+            aria-label={messages.explorer.minimizePreview()}
+            title={messages.explorer.minimizePreview()}
+            onClick={() => {
+              setTitleVisibleForPath(null)
+              setMediaPreviewMinimized(true)
+            }}
+          >
+            <IconMinus size={14} stroke={1.8} />
+          </UIButton>
           <UIButton
             size="icon-xs"
             variant="ghost"

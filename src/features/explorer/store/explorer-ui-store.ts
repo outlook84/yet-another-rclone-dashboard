@@ -49,6 +49,7 @@ interface ExplorerUIState {
       pendingTransferAction: PendingTransferAction
       pendingRenameAction: PendingRenameAction
       mediaPreview: MediaPreviewState
+      mediaPreviewMinimized: boolean
     }
   >
   inspectDirectoryPaths: Record<string, string>
@@ -64,6 +65,7 @@ interface ExplorerUIState {
     updater: PendingRenameAction | ((prev: PendingRenameAction) => PendingRenameAction),
   ) => void
   setMediaPreview: (updater: MediaPreviewState | ((prev: MediaPreviewState) => MediaPreviewState)) => void
+  setMediaPreviewMinimized: (minimized: boolean) => void
   setInspectDirectoryPaths: (
     updater: Record<string, string> | ((prev: Record<string, string>) => Record<string, string>),
   ) => void
@@ -139,6 +141,7 @@ export const useExplorerUIStore = create<ExplorerUIState>()(
                 pendingTransferAction: null,
                 pendingRenameAction: null,
                 mediaPreview: null,
+                mediaPreviewMinimized: false,
               },
             },
           }
@@ -177,12 +180,29 @@ export const useExplorerUIStore = create<ExplorerUIState>()(
         set((state) => {
           if (!state.scopeKey) return {}
           const currentScopeState = state.actionsByScope[state.scopeKey]!
+          const nextMediaPreview =
+            typeof updater === "function" ? updater(currentScopeState.mediaPreview) : updater
           return {
             actionsByScope: {
               ...state.actionsByScope,
               [state.scopeKey]: {
                 ...currentScopeState,
-                mediaPreview: typeof updater === "function" ? updater(currentScopeState.mediaPreview) : updater,
+                mediaPreview: nextMediaPreview,
+                mediaPreviewMinimized: nextMediaPreview ? false : false,
+              },
+            },
+          }
+        }),
+      setMediaPreviewMinimized: (minimized) =>
+        set((state) => {
+          if (!state.scopeKey) return {}
+          const currentScopeState = state.actionsByScope[state.scopeKey]!
+          return {
+            actionsByScope: {
+              ...state.actionsByScope,
+              [state.scopeKey]: {
+                ...currentScopeState,
+                mediaPreviewMinimized: currentScopeState.mediaPreview ? minimized : false,
               },
             },
           }
@@ -217,6 +237,7 @@ export const useExplorerUIStore = create<ExplorerUIState>()(
               {
                 ...scopeState,
                 mediaPreview: null,
+                mediaPreviewMinimized: false,
               },
             ]),
           ),

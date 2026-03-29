@@ -42,6 +42,7 @@ describe("useExplorerUIStore", () => {
       pendingRenameAction: {
         nextName: "archive",
       },
+      mediaPreviewMinimized: false,
     })
 
     useExplorerUIStore.getState().setScope("scope-a")
@@ -102,12 +103,38 @@ describe("useExplorerUIStore", () => {
 
     useExplorerUIStore.getState().setScope("scope-b")
     expect(useExplorerUIStore.getState().actionsByScope["scope-b"]?.mediaPreview).toBeNull()
+    expect(useExplorerUIStore.getState().actionsByScope["scope-b"]?.mediaPreviewMinimized).toBe(false)
 
     useExplorerUIStore.getState().setScope("scope-a")
     expect(useExplorerUIStore.getState().actionsByScope["scope-a"]?.mediaPreview).toMatchObject({
       fileName: "clip.mp4",
       kind: "video",
     })
+    expect(useExplorerUIStore.getState().actionsByScope["scope-a"]?.mediaPreviewMinimized).toBe(false)
+  })
+
+  it("resets minimized state when opening a media preview", () => {
+    useExplorerUIStore.getState().setScope("scope-a")
+    useExplorerUIStore.getState().setMediaPreview({
+      fileName: "clip.mp4",
+      kind: "video",
+      layout: "video-landscape",
+      path: "folder/clip.mp4",
+      url: "http://localhost/clip.mp4",
+    })
+    useExplorerUIStore.getState().setMediaPreviewMinimized(true)
+
+    expect(useExplorerUIStore.getState().actionsByScope["scope-a"]?.mediaPreviewMinimized).toBe(true)
+
+    useExplorerUIStore.getState().setMediaPreview({
+      fileName: "photo.jpg",
+      kind: "image",
+      layout: "image-landscape",
+      path: "folder/photo.jpg",
+      url: "http://localhost/photo.jpg",
+    })
+
+    expect(useExplorerUIStore.getState().actionsByScope["scope-a"]?.mediaPreviewMinimized).toBe(false)
   })
 
   it("clears media previews across all scopes", () => {
@@ -133,5 +160,7 @@ describe("useExplorerUIStore", () => {
 
     expect(useExplorerUIStore.getState().actionsByScope["scope-a"]?.mediaPreview).toBeNull()
     expect(useExplorerUIStore.getState().actionsByScope["scope-b"]?.mediaPreview).toBeNull()
+    expect(useExplorerUIStore.getState().actionsByScope["scope-a"]?.mediaPreviewMinimized).toBe(false)
+    expect(useExplorerUIStore.getState().actionsByScope["scope-b"]?.mediaPreviewMinimized).toBe(false)
   })
 })

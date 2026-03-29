@@ -55,6 +55,7 @@ import { cn } from "@/shared/lib/cn"
 import { useConnectionStore } from "@/shared/store/connection-store"
 import { usePageChromeStore } from "@/shared/store/page-chrome-store"
 import { startManagedUpload } from "@/features/uploads/lib/upload-manager"
+import { useUploadCenterStore } from "@/features/uploads/store/upload-center-store"
 import {
   useExplorerUIStore,
   type MediaPreviewLayout,
@@ -151,6 +152,7 @@ function ExplorerPage() {
   const setSelectionModes = useExplorerUIStore((state) => state.setSelectionModes)
   const setSelectedPathsByTab = useExplorerUIStore((state) => state.setSelectedPathsByTab)
   const setMediaPreview = useExplorerUIStore((state) => state.setMediaPreview)
+  const setUploadCenterCollapsed = useUploadCenterStore((state) => state.setCollapsed)
   const profiles = useSavedConnectionsStore((state) => state.profiles)
   const selectedProfileId = useSavedConnectionsStore((state) => state.selectedProfileId)
   const sortMode = useMemo(
@@ -250,6 +252,7 @@ function ExplorerPage() {
       return
     }
 
+    setUploadCenterCollapsed(true)
     setMediaPreview({
       fileName: item.itemName,
       kind,
@@ -257,7 +260,7 @@ function ExplorerPage() {
       path: item.srcPath,
       url: buildRcServeUrl(apiBaseUrl, currentRemote, item.srcPath),
     })
-  }, [apiBaseUrl, currentRemote, rcServeAvailable, setMediaPreview])
+  }, [apiBaseUrl, currentRemote, rcServeAvailable, setMediaPreview, setUploadCenterCollapsed])
   const openNewDirectoryInput = (enabled: boolean) => {
     setShowNewDirectoryInput(enabled)
 
