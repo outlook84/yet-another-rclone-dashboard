@@ -292,6 +292,7 @@ function ConnectPage() {
                   value={baseUrl}
                   onChange={(event) => setBaseUrl(event.currentTarget.value)}
                 />
+                <span className="app-help-text">{messages.connect.baseUrlDescription()}</span>
               </label>
 
               <label className="flex flex-col gap-2">

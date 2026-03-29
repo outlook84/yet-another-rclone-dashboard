@@ -3,6 +3,21 @@ import { persist } from "zustand/middleware"
 import type { AuthMode, BasicCredentials } from "@/shared/api/contracts/auth"
 import type { ServerInfo } from "@/shared/api/contracts/session"
 
+const FALLBACK_BASE_URL = "http://localhost:5572"
+
+const getDefaultBaseUrl = () => {
+  if (typeof window === "undefined") {
+    return FALLBACK_BASE_URL
+  }
+
+  const { origin, protocol } = window.location
+  if (protocol === "http:" || protocol === "https:") {
+    return origin
+  }
+
+  return FALLBACK_BASE_URL
+}
+
 interface ConnectionState {
   baseUrl: string
   authMode: AuthMode
@@ -25,7 +40,7 @@ interface ConnectionState {
 const useConnectionStore = create<ConnectionState>()(
   persist(
     (set) => ({
-      baseUrl: "http://localhost:5572",
+      baseUrl: getDefaultBaseUrl(),
       authMode: "basic",
       basicCredentials: {
         username: "gui",

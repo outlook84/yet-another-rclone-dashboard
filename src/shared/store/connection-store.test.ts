@@ -20,7 +20,7 @@ describe("useConnectionStore", () => {
     const { useConnectionStore } = await import("@/shared/store/connection-store")
 
     expect(useConnectionStore.getState()).toMatchObject({
-      baseUrl: "http://localhost:5572",
+      baseUrl: window.location.origin,
       authMode: "basic",
       basicCredentials: {
         username: "gui",
@@ -30,6 +30,14 @@ describe("useConnectionStore", () => {
       lastServerInfo: null,
       validationRevision: 0,
     })
+  })
+
+  it("uses the browser origin for the default base url", async () => {
+    window.history.replaceState({}, "", "/internal/connect")
+
+    const { useConnectionStore } = await import("@/shared/store/connection-store")
+
+    expect(useConnectionStore.getState().baseUrl).toBe(window.location.origin)
   })
 
   it("clears validation when connection settings change", async () => {
