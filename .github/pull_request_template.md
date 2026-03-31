@@ -7,7 +7,7 @@
 
 ## Verification
 
-- [ ] `pnpm lint:eslint`
+- [ ] `pnpm lint`
 - [ ] `pnpm test`
 - [ ] `pnpm build`
 
