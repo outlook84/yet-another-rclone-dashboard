@@ -29,6 +29,9 @@ type AppMessages = {
     itemsSelected: (count: number) => string
     dismissNotification: () => string
     openGitHubProject: () => string
+    updateAvailable: () => string
+    updateAvailableMessage: () => string
+    refreshToUpdate: () => string
   }
   app: {
     shortName: () => string

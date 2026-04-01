@@ -48,6 +48,7 @@ Modern Web Dashboard for `rclone rcd` (Rclone v1.72.0 or later recommended).
 - inspect running and completed jobs, and stop active jobs
 - multiple built-in themes (Light/Dark/Vivid)
 - mobile friendly
+- PWA support: Installable as a standalone app on both mobile and desktop.
 
 ## Deliberate Non-Goals & Not Planned
 
@@ -217,4 +218,4 @@ Navigate to the configured address (e.g., `http://127.0.0.1:5572` or your server
 
 ## Credits
 
-Favicon artwork is derived from Noto Emoji. See [LICENSES/Noto-Emoji-LICENSE.txt](./LICENSES/Noto-Emoji-LICENSE.txt) for the bundled license text.
+Application icon artwork, including the favicon and bundled PWA icons, is derived from Noto Emoji. See [LICENSES/Noto-Emoji-LICENSE.txt](./LICENSES/Noto-Emoji-LICENSE.txt) for the bundled license text.

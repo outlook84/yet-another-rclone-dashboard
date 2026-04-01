@@ -25,6 +25,9 @@ const commonMessages: MessageSet<AppMessages["common"]> = {
     itemsSelected: (count) => `${count} selected`,
     dismissNotification: () => "Dismiss notification",
     openGitHubProject: () => "Open GitHub project",
+    updateAvailable: () => "Update available",
+    updateAvailableMessage: () => "A newer dashboard build has been installed and is ready to use.",
+    refreshToUpdate: () => "Refresh now",
   },
   "zh-CN": {
     section: () => "区块",
@@ -50,6 +53,9 @@ const commonMessages: MessageSet<AppMessages["common"]> = {
     itemsSelected: (count) => `已选择 ${count} 项`,
     dismissNotification: () => "关闭通知",
     openGitHubProject: () => "打开 GitHub 项目",
+    updateAvailable: () => "发现新版本",
+    updateAvailableMessage: () => "新的仪表盘版本已经下载完成，刷新后即可使用。",
+    refreshToUpdate: () => "立即刷新",
   },
 }
 

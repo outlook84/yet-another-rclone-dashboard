@@ -48,6 +48,7 @@
 - 查看运行中与历史任务，停止运行中的任务
 - 多种内置主题 (Light/Dark/Vivid)
 - 移动端友好
+- PWA 支持：可在移动端与桌面端作为应用安装
 
 ## 非开发目标与限制
 
@@ -217,4 +218,4 @@ handle @rclone {
 
 ## 鸣谢
 
-Favicon 图标基于 Noto Emoji 资源制作。随仓库附带的授权文本见 [LICENSES/Noto-Emoji-LICENSE.txt](../LICENSES/Noto-Emoji-LICENSE.txt)。
+应用图标资源（包括 favicon 与随仓库提供的 PWA 图标）基于 Noto Emoji 资源制作。随仓库附带的授权文本见 [LICENSES/Noto-Emoji-LICENSE.txt](../LICENSES/Noto-Emoji-LICENSE.txt)。
