@@ -6,8 +6,9 @@ import { Button } from "@/shared/components/ui/button"
 import { useMediaQuery } from "@/shared/hooks/use-media-query"
 import { useI18n } from "@/shared/i18n"
 import { formatBackendText, formatLocalizedDurationShort, hasBackendText } from "@/shared/i18n/formatters"
+import { useNotify } from "@/shared/components/notification-provider"
 import { formatBytes } from "@/features/explorer/lib/display-utils"
-import { useUploadCenterStore } from "@/features/uploads/store/upload-center-store"
+import { useUploadCenterStore, type UploadTask, type UploadTaskStatus } from "@/features/uploads/store/upload-center-store"
 
 const UPLOAD_CENTER_MARGIN = 16
 const UPLOAD_CENTER_PREVIEW_GAP = 12
@@ -52,8 +53,42 @@ function getUploadSpeedBytesPerSecond(startedAt: string, uploadedBytes: number, 
   return uploadedBytes / elapsedSeconds
 }
 
+function formatUploadTarget(remote: string, path: string) {
+  return `${remote}:${path || "/"}`
+}
+
+function getFailedUploadLabel(task: UploadTask) {
+  const failedFileName = task.fileNames[task.completedFiles] ?? task.fileNames.at(-1)
+  if (failedFileName) {
+    return failedFileName
+  }
+
+  return formatUploadTarget(task.remote, task.path)
+}
+
+function CountBadge({
+  tone,
+  children,
+}: {
+  tone: "neutral" | "danger"
+  children: string
+}) {
+  return (
+    <span
+      className={
+        tone === "danger"
+          ? "rounded-full border border-[color:var(--app-danger-border)] bg-[color:var(--app-danger-bg)] px-1.5 py-0.5 text-xs font-medium leading-none text-[color:var(--app-danger-text-strong)]"
+          : "rounded-full bg-[color:var(--app-hover-surface)] px-1.5 py-0.5 text-xs font-medium leading-none text-[color:var(--app-text-soft)]"
+      }
+    >
+      {children}
+    </span>
+  )
+}
+
 function GlobalUploadCenter() {
   const { locale, messages } = useI18n()
+  const notify = useNotify()
   const compactMediaPreview = useMediaQuery("(max-width: 48em)")
   const mediaPreview = useExplorerUIStore((state) =>
     state.scopeKey ? state.actionsByScope[state.scopeKey]?.mediaPreview ?? null : null,
@@ -71,8 +106,10 @@ function GlobalUploadCenter() {
   const removeTask = useUploadCenterStore((state) => state.removeTask)
   const clearCompletedTasks = useUploadCenterStore((state) => state.clearCompletedTasks)
   const panelRef = useRef<HTMLDivElement | null>(null)
+  const previousTaskStatusesRef = useRef<Map<string, UploadTaskStatus> | null>(null)
   const activeCount = tasks.filter((task) => task.status === "uploading").length
   const completedCount = tasks.filter((task) => task.status === "success").length
+  const failedCount = tasks.filter((task) => task.status === "error").length
   const bottomOffset =
     mediaPreview
       ? mediaPreviewMinimized
@@ -85,6 +122,32 @@ function GlobalUploadCenter() {
     bottom: `${bottomOffset}px`,
     right: `${UPLOAD_CENTER_MARGIN}px`,
   }
+
+  useEffect(() => {
+    const previousTaskStatuses = previousTaskStatusesRef.current
+    const nextTaskStatuses = new Map(tasks.map((task) => [task.id, task.status]))
+
+    if (!previousTaskStatuses) {
+      previousTaskStatusesRef.current = nextTaskStatuses
+      return
+    }
+
+    for (const task of tasks) {
+      const previousStatus = previousTaskStatuses.get(task.id)
+      if (previousStatus !== "error" && task.status === "error") {
+        notify({
+          title: messages.explorer.uploadFailedToastTitle(),
+          message: messages.explorer.uploadFailedToastMessage(
+            getFailedUploadLabel(task),
+            formatBackendText(task.errorMessage ?? undefined, messages.common.unknownError()),
+          ),
+          color: "red",
+        })
+      }
+    }
+
+    previousTaskStatusesRef.current = nextTaskStatuses
+  }, [messages.common, messages.explorer, notify, tasks])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -133,11 +196,14 @@ function GlobalUploadCenter() {
   }
 
   if (collapsed) {
+    const collapsedLabel = messages.explorer.showUploads(activeCount, tasks.length, failedCount)
+
     return (
       <div className="fixed z-40" style={floatingPositionStyle}>
         <Button
           variant="secondary"
           className="h-10 rounded-full border border-[color:var(--app-border)] px-4 shadow-[0_14px_30px_rgba(0,0,0,0.12)]"
+          aria-label={collapsedLabel}
           onClick={() => {
             if (mediaPreview && !compactMediaPreview && !mediaPreviewMinimized) {
               setMediaPreviewMinimized(true)
@@ -145,8 +211,16 @@ function GlobalUploadCenter() {
             expand()
           }}
         >
-          <ChevronUp className="mr-2 h-4 w-4" />
-          {messages.explorer.showUploads(activeCount, tasks.length)}
+          <span className="flex min-w-0 items-center gap-2">
+            <ChevronUp className="h-4 w-4 shrink-0" />
+            <span className="truncate">{messages.explorer.uploads()}</span>
+          </span>
+          {activeCount > 0 || failedCount > 0 ? (
+            <span className="ml-3 flex items-center gap-1.5">
+              {activeCount > 0 ? <CountBadge tone="neutral">{messages.explorer.uploadsDescription(activeCount, tasks.length)}</CountBadge> : null}
+              {failedCount > 0 ? <CountBadge tone="danger">{messages.explorer.failedUploadsLabel(failedCount)}</CountBadge> : null}
+            </span>
+          ) : null}
         </Button>
       </div>
     )
@@ -162,13 +236,12 @@ function GlobalUploadCenter() {
         <CardContent className="p-0">
           <div className="flex items-center justify-between gap-3 border-b border-[color:var(--app-border)] px-4 py-3">
             <div className="min-w-0">
-              <div className="flex items-center gap-2 text-sm font-bold text-[color:var(--app-text)]">
+              <div className="flex items-center gap-2.5 text-sm font-bold text-[color:var(--app-text)]">
                 <span>{messages.explorer.uploads()}</span>
                 {activeCount > 0 ? (
-                  <span className="rounded-full bg-[color:var(--app-hover-surface)] px-2 py-0.5 text-xs font-normal text-[color:var(--app-text-soft)]">
-                    {messages.explorer.uploadsDescription(activeCount, tasks.length)}
-                  </span>
+                  <CountBadge tone="neutral">{messages.explorer.uploadsDescription(activeCount, tasks.length)}</CountBadge>
                 ) : null}
+                {failedCount > 0 ? <CountBadge tone="danger">{messages.explorer.failedUploadsLabel(failedCount)}</CountBadge> : null}
               </div>
             </div>
             <div className="flex items-center gap-1">
@@ -187,7 +260,7 @@ function GlobalUploadCenter() {
           </div>
           <div className="max-h-[420px] overflow-y-auto">
             {tasks.map((task) => {
-              const fullLocationLabel = `${task.remote}:${task.path || "/"}`
+              const fullLocationLabel = formatUploadTarget(task.remote, task.path)
               const overallProgress = task.totalBytes > 0 ? clampProgress(task.uploadedBytes / task.totalBytes) : 0
               const isUploading = task.status === "uploading"
               const hasReliableProgress = task.progressEventCount >= 2

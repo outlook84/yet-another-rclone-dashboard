@@ -136,7 +136,9 @@ describe("GlobalUploadCenter", () => {
 
     renderWithProviders(<GlobalUploadCenter />)
 
-    const floatingContainer = screen.getByRole("button", { name: "Upload Tasks 1" }).closest("div.fixed") as HTMLDivElement | null
+    const floatingContainer = screen
+      .getByRole("button", { name: "Upload Tasks, 1 active" })
+      .closest("div.fixed") as HTMLDivElement | null
 
     expect(floatingContainer).not.toBeNull()
     expect(floatingContainer?.style.bottom).toBe("548px")
@@ -149,7 +151,9 @@ describe("GlobalUploadCenter", () => {
 
     renderWithProviders(<GlobalUploadCenter />)
 
-    const floatingContainer = screen.getByRole("button", { name: "Upload Tasks 1" }).closest("div.fixed") as HTMLDivElement | null
+    const floatingContainer = screen
+      .getByRole("button", { name: "Upload Tasks, 1 active" })
+      .closest("div.fixed") as HTMLDivElement | null
 
     expect(floatingContainer).not.toBeNull()
     expect(floatingContainer?.style.bottom).toBe("68px")
@@ -163,7 +167,9 @@ describe("GlobalUploadCenter", () => {
 
     renderWithProviders(<GlobalUploadCenter />)
 
-    const floatingContainer = screen.getByRole("button", { name: "Upload Tasks 1" }).closest("div.fixed") as HTMLDivElement | null
+    const floatingContainer = screen
+      .getByRole("button", { name: "Upload Tasks, 1 active" })
+      .closest("div.fixed") as HTMLDivElement | null
 
     expect(floatingContainer).not.toBeNull()
     expect(floatingContainer?.style.bottom).toBe("68px")
@@ -251,5 +257,50 @@ describe("GlobalUploadCenter", () => {
     window.dispatchEvent(event)
 
     expect(useUploadCenterStore.getState().collapsed).toBe(false)
+  })
+
+  it("shows a red failed-count badge while collapsed", () => {
+    useUploadCenterStore.setState({
+      tasks: [buildUploadTask({ status: "error", errorMessage: "Proxy blocked upload" })],
+      collapsed: true,
+    })
+
+    renderWithProviders(<GlobalUploadCenter />)
+
+    expect(screen.getByRole("button", { name: "Upload Tasks, 1 failed" })).not.toBeNull()
+    expect(screen.getByText("1 failed")).not.toBeNull()
+  })
+
+  it("shows an upload failure toast when a task transitions to error", async () => {
+    renderWithProviders(<GlobalUploadCenter />)
+
+    useUploadCenterStore.setState({
+      tasks: [buildUploadTask({ status: "error", errorMessage: "Proxy blocked upload" })],
+      collapsed: false,
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText("Upload Failed")).not.toBeNull()
+      expect(screen.getByText("clip.mp4: Proxy blocked upload")).not.toBeNull()
+    })
+  })
+
+  it("shows an upload failure toast when a new task first appears in error", async () => {
+    useUploadCenterStore.setState({
+      tasks: [],
+      collapsed: false,
+    })
+
+    renderWithProviders(<GlobalUploadCenter />)
+
+    useUploadCenterStore.setState({
+      tasks: [buildUploadTask({ id: "upload-fast-fail", status: "error", errorMessage: "Auth setup failed" })],
+      collapsed: false,
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText("Upload Failed")).not.toBeNull()
+      expect(screen.getByText("clip.mp4: Auth setup failed")).not.toBeNull()
+    })
   })
 })

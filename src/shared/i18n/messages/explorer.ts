@@ -19,7 +19,18 @@ const explorerMessages: MessageSet<AppMessages["explorer"]> = {
     upload: () => "Upload",
     uploads: () => "Upload Tasks",
     uploadsDescription: (activeCount) => (activeCount > 0 ? `${activeCount}` : ""),
-    showUploads: (activeCount) => (activeCount > 0 ? `Upload Tasks ${activeCount}` : `Upload Tasks`),
+    failedUploadsLabel: (failedCount) => `${failedCount} failed`,
+    showUploads: (activeCount, totalCount, failedCount) => {
+      void totalCount
+      const parts = ["Upload Tasks"]
+      if (activeCount > 0) {
+        parts.push(`${activeCount} active`)
+      }
+      if (failedCount > 0) {
+        parts.push(`${failedCount} failed`)
+      }
+      return parts.join(", ")
+    },
     collapseUploads: () => "Collapse upload tasks",
     cancelUpload: () => "Cancel Upload",
     dismissUpload: () => "Dismiss upload",
@@ -35,6 +46,8 @@ const explorerMessages: MessageSet<AppMessages["explorer"]> = {
     uploadSpeed: () => "Speed",
     waitingForProgress: () => "Waiting for browser progress events",
     indeterminateProgress: () => "Estimating progress...",
+    uploadFailedToastTitle: () => "Upload Failed",
+    uploadFailedToastMessage: (itemLabel, errorMessage) => `${itemLabel}: ${errorMessage}`,
     newFolder: () => "New Folder",
     filter: () => "Filter",
     done: () => "Done",
@@ -141,7 +154,18 @@ const explorerMessages: MessageSet<AppMessages["explorer"]> = {
     upload: () => "上传",
     uploads: () => "上传任务",
     uploadsDescription: (activeCount) => (activeCount > 0 ? `${activeCount}` : ""),
-    showUploads: (activeCount) => (activeCount > 0 ? `上传任务 ${activeCount}` : `上传任务`),
+    failedUploadsLabel: (failedCount) => `失败 ${failedCount}`,
+    showUploads: (activeCount, totalCount, failedCount) => {
+      void totalCount
+      const parts = ["上传任务"]
+      if (activeCount > 0) {
+        parts.push(`${activeCount} 个进行中`)
+      }
+      if (failedCount > 0) {
+        parts.push(`${failedCount} 个失败`)
+      }
+      return parts.join("，")
+    },
     collapseUploads: () => "收起上传任务面板",
     cancelUpload: () => "取消上传",
     dismissUpload: () => "关闭记录",
@@ -157,6 +181,8 @@ const explorerMessages: MessageSet<AppMessages["explorer"]> = {
     uploadSpeed: () => "速度",
     waitingForProgress: () => "等待浏览器返回进度事件",
     indeterminateProgress: () => "正在估算进度...",
+    uploadFailedToastTitle: () => "上传失败",
+    uploadFailedToastMessage: (itemLabel, errorMessage) => `${itemLabel}：${errorMessage}`,
     newFolder: () => "新建文件夹",
     filter: () => "筛选",
     done: () => "完成",
