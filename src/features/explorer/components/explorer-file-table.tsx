@@ -1,4 +1,4 @@
-import { IconColumns, IconDotsVertical, IconFile, IconFolderFilled } from "@tabler/icons-react"
+import { IconColumns, IconDotsVertical, IconFile, IconFolderFilled, IconMusic, IconPhoto, IconVideo } from "@tabler/icons-react"
 import { Loader2 } from "lucide-react"
 import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from "react"
 import type { MouseEvent as ReactMouseEvent } from "react"
@@ -8,6 +8,7 @@ import type { AppMessages } from "@/shared/i18n/messages/types"
 import type { SortMode } from "@/features/explorer/lib/display-utils"
 import type { PendingTransferItem } from "@/features/explorer/store/explorer-ui-store"
 import { formatBytes, formatModTime, nextSortMode, sortLabel } from "@/features/explorer/lib/display-utils"
+import { getExplorerMediaKind } from "@/features/explorer/lib/media-kind"
 import { joinPath } from "@/features/explorer/lib/path-utils"
 import { cn } from "@/shared/lib/cn"
 import { Checkbox } from "@/shared/components/ui/checkbox"
@@ -24,6 +25,25 @@ type ExplorerRowUiState = {
   tabId: string
   path: string
 } | null
+
+function ExplorerItemIcon({ item }: { item: ExplorerItem }) {
+  if (item.type === "dir") {
+    return <IconFolderFilled size={14} stroke={1.8} className="shrink-0 text-[color:var(--app-accent-strong)]" />
+  }
+
+  const mediaKind = getExplorerMediaKind({ name: item.name, mimeType: item.mimeType })
+  if (mediaKind === "image") {
+    return <IconPhoto size={14} stroke={1.8} className="shrink-0 text-[color:var(--app-text-soft)]" />
+  }
+  if (mediaKind === "audio") {
+    return <IconMusic size={14} stroke={1.8} className="shrink-0 text-[color:var(--app-text-soft)]" />
+  }
+  if (mediaKind === "video") {
+    return <IconVideo size={14} stroke={1.8} className="shrink-0 text-[color:var(--app-text-soft)]" />
+  }
+
+  return <IconFile size={14} stroke={1.8} className="shrink-0 text-[color:var(--app-text-soft)]" />
+}
 
 interface ExplorerFileTableProps {
   messages: AppMessages
@@ -325,18 +345,18 @@ function ExplorerFileTable({
                             type="button"
                             onClick={(event) => {
                               event.stopPropagation()
-                              onNavigateDirectory(item.name)
-                            }}
-                            className="flex min-w-0 items-center gap-1 text-left transition-colors hover:text-[color:var(--app-accent)]"
+                            onNavigateDirectory(item.name)
+                          }}
+                          className="flex min-w-0 items-center gap-1 text-left transition-colors hover:text-[color:var(--app-accent)]"
                           >
-                            <IconFolderFilled size={14} stroke={1.8} className="shrink-0 text-[color:var(--app-accent-strong)]" />
+                            <ExplorerItemIcon item={item} />
                             <span className="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-normal leading-5 text-[color:var(--app-text)]">
                               {item.name}
                             </span>
                           </button>
                         ) : (
                           <div className="flex min-w-0 items-center gap-1">
-                            <IconFile size={14} stroke={1.8} className="shrink-0 text-[color:var(--app-text-soft)]" />
+                            <ExplorerItemIcon item={item} />
                             <div
                               title={item.name}
                               className="block min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-normal leading-5 text-[color:var(--app-text)]"

@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, screen, waitFor, within, type RenderResult } f
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ExplorerPage } from "@/features/explorer/pages/explorer-page"
 import { useSavedConnectionsStore } from "@/features/auth/store/saved-connections-store"
+import type { ExplorerItem } from "@/shared/api/contracts/explorer"
 import { useExplorerStore } from "@/features/explorer/store/explorer-store"
 import { useExplorerUIStore } from "@/features/explorer/store/explorer-ui-store"
 import { formatLocalizedCompactDateTime } from "@/shared/i18n/formatters"
@@ -105,7 +106,7 @@ vi.mock("@tanstack/react-virtual", () => ({
 }))
 
 describe("ExplorerPage", () => {
-  const defaultExplorerItems = [
+  const defaultExplorerItems: ExplorerItem[] = [
     {
       name: "alpha",
       path: "folder/alpha",
@@ -128,7 +129,7 @@ describe("ExplorerPage", () => {
       modTime: "2026-03-20T00:00:00Z",
     },
   ]
-  let explorerItems = defaultExplorerItems
+  let explorerItems: ExplorerItem[] = defaultExplorerItems
 
   function setMatchMedia(matchesByQuery: Record<string, boolean>) {
     Object.defineProperty(window, "matchMedia", {
@@ -567,6 +568,61 @@ describe("ExplorerPage", () => {
 
     expect(screen.getByText("123 B")).not.toBeNull()
     expect(screen.getByText("99 B")).not.toBeNull()
+  })
+
+  it("renders file-type icons for directories and media files", () => {
+    explorerItems = [
+      {
+        name: "photos",
+        path: "folder/photos",
+        type: "dir",
+        size: undefined,
+        modTime: "2026-03-21T00:00:00Z",
+      },
+      {
+        name: "cover.png",
+        path: "folder/cover.png",
+        type: "file",
+        size: 120,
+        modTime: "2026-03-22T00:00:00Z",
+      },
+      {
+        name: "mix.mp3",
+        path: "folder/mix.mp3",
+        type: "file",
+        size: 240,
+        modTime: "2026-03-23T00:00:00Z",
+      },
+      {
+        name: "clip.bin",
+        path: "folder/clip.bin",
+        type: "file",
+        size: 360,
+        modTime: "2026-03-24T00:00:00Z",
+        mimeType: "video/mp4",
+      },
+      {
+        name: "notes.txt",
+        path: "folder/notes.txt",
+        type: "file",
+        size: 42,
+        modTime: "2026-03-25T00:00:00Z",
+      },
+    ]
+
+    renderWithProviders(<ExplorerPage />)
+
+    const directoryRow = screen.getByText("photos").closest('[role="row"]')
+    const imageRow = screen.getByText("cover.png").closest('[role="row"]')
+    const audioRow = screen.getByText("mix.mp3").closest('[role="row"]')
+    const videoRow = screen.getByText("clip.bin").closest('[role="row"]')
+    const genericFileRow = screen.getByText("notes.txt").closest('[role="row"]')
+
+    expect(directoryRow?.querySelector(".tabler-icon-folder-filled")).not.toBeNull()
+    expect(imageRow?.querySelector(".tabler-icon-photo")).not.toBeNull()
+    expect(audioRow?.querySelector(".tabler-icon-music")).not.toBeNull()
+    expect(videoRow?.querySelector(".tabler-icon-video")).not.toBeNull()
+    expect(genericFileRow?.querySelector(".tabler-icon-file")).not.toBeNull()
   })
 
   it("formats modified time for display", () => {

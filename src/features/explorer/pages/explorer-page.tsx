@@ -31,6 +31,7 @@ import {
   filterAndSortExplorerItems,
   formatBytes,
 } from "@/features/explorer/lib/display-utils"
+import { getExplorerMediaKind } from "@/features/explorer/lib/media-kind"
 import { buildRcServeUrl } from "@/features/explorer/lib/rc-serve-url"
 import { joinPath, normalizePath, parentPath } from "@/features/explorer/lib/path-utils"
 import { useExplorerStore } from "@/features/explorer/store/explorer-store"
@@ -67,38 +68,8 @@ type ExplorerRowUiState = {
 
 const EMPTY_SELECTED_PATHS: string[] = []
 
-const IMAGE_EXTENSIONS = new Set(["avif", "bmp", "gif", "jpeg", "jpg", "png", "svg", "webp"])
-const AUDIO_EXTENSIONS = new Set(["aac", "flac", "m4a", "mp3", "oga", "ogg", "wav", "weba"])
-const VIDEO_EXTENSIONS = new Set(["m4v", "mov", "mp4", "ogv", "webm"])
-function getFileExtension(name: string) {
-  const extension = name.split(".").pop()
-  return extension ? extension.toLowerCase() : ""
-}
-
 function getPreviewKind(item: PendingTransferItem): NonNullable<MediaPreviewState>["kind"] | null {
-  const mimeType = item.mimeType?.toLowerCase()
-  if (mimeType?.startsWith("image/")) {
-    return "image"
-  }
-  if (mimeType?.startsWith("audio/")) {
-    return "audio"
-  }
-  if (mimeType?.startsWith("video/")) {
-    return "video"
-  }
-
-  const extension = getFileExtension(item.itemName)
-  if (IMAGE_EXTENSIONS.has(extension)) {
-    return "image"
-  }
-  if (AUDIO_EXTENSIONS.has(extension)) {
-    return "audio"
-  }
-  if (VIDEO_EXTENSIONS.has(extension)) {
-    return "video"
-  }
-
-  return null
+  return getExplorerMediaKind({ name: item.itemName, mimeType: item.mimeType })
 }
 
 function getDefaultMediaPreviewLayout(kind: NonNullable<MediaPreviewState>["kind"]): MediaPreviewLayout {
