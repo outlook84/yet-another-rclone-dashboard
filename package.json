@@ -6,6 +6,7 @@
     "type": "git",
     "url": "https://github.com/outlook84/yet-another-rclone-dashboard"
   },
+  "packageManager": "pnpm@10.16.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
