@@ -426,6 +426,7 @@ function ExplorerPage() {
     return filterAndSortExplorerItems(explorerQuery.data?.items ?? [], filterText, sortMode)
   }, [explorerQuery.data?.items, filterText, sortMode])
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const [bodyScrollbarWidth, setBodyScrollbarWidth] = useState(0)
   const activeItemPath = activeItemState?.tabId === activeTabId ? activeItemState.path : null
   const openRowActionPath = openRowActionState?.tabId === activeTabId ? openRowActionState.path : null
   const visibleItemPaths = useMemo(
@@ -457,6 +458,31 @@ function ExplorerPage() {
       scrollContainerRef.current.scrollTop = 0
     }
   }, [scrollResetKey])
+  useEffect(() => {
+    const container = scrollContainerRef.current
+    if (!container) {
+      return
+    }
+
+    const updateScrollbarWidth = () => {
+      setBodyScrollbarWidth(Math.max(container.offsetWidth - container.clientWidth, 0))
+    }
+
+    updateScrollbarWidth()
+
+    if (typeof ResizeObserver === "undefined") {
+      return
+    }
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateScrollbarWidth()
+    })
+    resizeObserver.observe(container)
+
+    return () => {
+      resizeObserver.disconnect()
+    }
+  }, [visibleItems.length, showMetaCols])
   const selectedItems = useMemo(() => {
     const selectedSet = new Set(selectedPaths)
     return (explorerQuery.data?.items ?? [])
@@ -1970,7 +1996,7 @@ function ExplorerPage() {
             <div className="flex min-h-0 flex-1 flex-col gap-3">
               <TableShell className="app-explorer-table flex min-h-0 flex-1 flex-col p-0">
                 {/* Sticky table header */}
-                <div className="overflow-x-auto bg-[color:var(--app-table-head-bg)]" style={{ scrollbarGutter: "stable" }}>
+                <div className="overflow-x-auto bg-[color:var(--app-table-head-bg)]" style={{ paddingRight: bodyScrollbarWidth }}>
                   <Table style={{ tableLayout: "fixed", width: "100%" }}>
                     <thead>
                       <TableHeadRow>
@@ -2043,7 +2069,6 @@ function ExplorerPage() {
                   ref={scrollContainerRef}
                   data-testid="explorer-scroll-container"
                   className="min-h-0 flex-1 overflow-x-auto overflow-y-auto"
-                  style={{ scrollbarGutter: "stable" }}
                 >
                   {/* Spacer that tells the browser the full scrollable height */}
                   <div style={{ height: virtualizer.getTotalSize(), position: "relative", width: "100%" }}>
