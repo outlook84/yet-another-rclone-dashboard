@@ -6,13 +6,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const INDEX_HTML_PATH = path.resolve(import.meta.dirname, "../../../index.html")
 const indexHtml = readFileSync(INDEX_HTML_PATH, "utf-8")
-const bootstrapScriptMatch = indexHtml.match(/<script>\s*([\s\S]*?)\s*<\/script>/)
+const indexHtmlDocument = new DOMParser().parseFromString(indexHtml, "text/html")
+const bootstrapScript = Array.from(indexHtmlDocument.querySelectorAll("script"))
+  .find((script) => !script.src && script.textContent?.includes("yard-theme-mode"))
+  ?.textContent
 
-if (!bootstrapScriptMatch?.[1]) {
+if (!bootstrapScript) {
   throw new Error("Could not find inline theme bootstrap script in index.html")
 }
 
-const bootstrapScript = bootstrapScriptMatch[1]
+const inlineBootstrapScript = bootstrapScript
 
 function mockMatchMedia(matches: boolean) {
   window.matchMedia = vi.fn().mockImplementation((query: string) => ({
@@ -37,7 +40,7 @@ function setHeadShell() {
 }
 
 function runBootstrap() {
-  window.eval(bootstrapScript)
+  window.eval(inlineBootstrapScript)
 }
 
 describe("index.html theme bootstrap", () => {
