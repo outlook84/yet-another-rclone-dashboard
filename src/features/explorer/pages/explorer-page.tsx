@@ -684,6 +684,8 @@ function ExplorerPage() {
           try {
             await Promise.all([
               explorerQuery.refetch(),
+              fsInfoQuery.refetch(),
+              supportsAbout ? usageQuery.refetch() : Promise.resolve(),
               authMode === "none" ? rcServeAvailabilityQuery.refetch() : Promise.resolve(),
             ])
           } finally {

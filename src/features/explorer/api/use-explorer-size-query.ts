@@ -11,6 +11,7 @@ function useExplorerSizeQuery(remote: string, path: string, enabled = true) {
     queryKey: [...queryKeys.explorer(connectionScope, remote, path), "size"] as const,
     queryFn: () => api.explorer.size({ remote, path }),
     enabled: Boolean(remote) && enabled,
+    staleTime: 15 * 1000,
   })
 }
 

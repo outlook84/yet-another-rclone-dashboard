@@ -12,6 +12,7 @@ function useExplorerListQuery(remote: string, path: string) {
     queryKey: queryKeys.explorer(connectionScope, remote, path),
     queryFn: () => api.explorer.list({ remote, path }),
     enabled: Boolean(remote),
+    staleTime: 10 * 1000,
     retry: shouldRetryExplorerQuery,
     refetchOnWindowFocus: false,
   })

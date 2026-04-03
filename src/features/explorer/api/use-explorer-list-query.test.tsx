@@ -12,6 +12,11 @@ const apiMock = {
   },
 }
 
+type ListCacheOptions = {
+  staleTime?: number
+  refetchOnWindowFocus?: boolean | string
+}
+
 vi.mock("@/shared/api/client/api-context", () => ({
   useAppApi: () => apiMock,
 }))
@@ -55,5 +60,50 @@ describe("useExplorerListQuery", () => {
 
     await waitFor(() => expect(result.current.fetchStatus).toBe("idle"))
     expect(apiMock.explorer.list).not.toHaveBeenCalled()
+  })
+
+  it("configures a short-lived directory list cache", async () => {
+    apiMock.explorer.list.mockResolvedValue({ location: { remote: "demo", path: "docs" }, items: [] })
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+      },
+    })
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    )
+
+    renderHook(() => useExplorerListQuery("demo", "docs"), { wrapper })
+
+    await waitFor(() => expect(apiMock.explorer.list).toHaveBeenCalledWith({ remote: "demo", path: "docs" }))
+
+    const query = queryClient.getQueryCache().find({ queryKey: ["scope", "scope://demo", "explorer", "demo", "docs"] })
+    const options = query?.options as ListCacheOptions | undefined
+
+    expect(options?.staleTime).toBe(10 * 1000)
+    expect(options?.refetchOnWindowFocus).toBe(false)
+  })
+
+  it("reuses the cached directory listing across remounts within stale time", async () => {
+    apiMock.explorer.list.mockResolvedValue({ location: { remote: "demo", path: "docs" }, items: [] })
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: { retry: false },
+      },
+    })
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    )
+
+    const first = renderHook(() => useExplorerListQuery("demo", "docs"), { wrapper })
+    await waitFor(() => expect(first.result.current.isSuccess).toBe(true))
+    expect(apiMock.explorer.list).toHaveBeenCalledTimes(1)
+
+    first.unmount()
+
+    const second = renderHook(() => useExplorerListQuery("demo", "docs"), { wrapper })
+    await waitFor(() => expect(second.result.current.isSuccess).toBe(true))
+
+    expect(apiMock.explorer.list).toHaveBeenCalledTimes(1)
   })
 })

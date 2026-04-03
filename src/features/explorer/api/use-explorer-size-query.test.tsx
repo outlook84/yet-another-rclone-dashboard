@@ -12,6 +12,10 @@ const apiMock = {
   },
 }
 
+type CacheTimingOptions = {
+  staleTime?: number
+}
+
 vi.mock("@/shared/api/client/api-context", () => ({
   useAppApi: () => apiMock,
 }))
@@ -54,5 +58,24 @@ describe("useExplorerSizeQuery", () => {
 
     await waitFor(() => expect(result.current.fetchStatus).toBe("idle"))
     expect(apiMock.explorer.size).not.toHaveBeenCalled()
+  })
+
+  it("configures a conservative size cache", async () => {
+    apiMock.explorer.size.mockResolvedValue({ bytes: 123 })
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    const wrapper = ({ children }: PropsWithChildren) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    )
+
+    renderHook(() => useExplorerSizeQuery("demo", "docs", true), { wrapper })
+
+    await waitFor(() => expect(apiMock.explorer.size).toHaveBeenCalledWith({ remote: "demo", path: "docs" }))
+
+    const query = queryClient.getQueryCache().find({ queryKey: ["scope", "scope://demo", "explorer", "demo", "docs", "size"] })
+    const options = query?.options as CacheTimingOptions | undefined
+
+    expect(options?.staleTime).toBe(15 * 1000)
   })
 })

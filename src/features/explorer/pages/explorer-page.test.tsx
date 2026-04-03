@@ -223,6 +223,7 @@ describe("ExplorerPage", () => {
         hashes: ["MD5"],
         features: {},
       },
+      refetch: vi.fn(),
     })
 
     usageQueryMock.mockReturnValue({
@@ -233,6 +234,7 @@ describe("ExplorerPage", () => {
         free: 2048,
         total: 3072,
       },
+      refetch: vi.fn(),
     })
 
     mkdirMutationMock.mockReturnValue({
@@ -1232,6 +1234,98 @@ describe("ExplorerPage", () => {
     await waitFor(() => {
       expect(scrollContainer.scrollTop).toBe(240)
     })
+  })
+
+  it("refetches list, fs info, and usage when manually refreshing the current location", async () => {
+    const listRefetch = vi.fn().mockResolvedValue(undefined)
+    const fsInfoRefetch = vi.fn().mockResolvedValue(undefined)
+    const usageRefetch = vi.fn().mockResolvedValue(undefined)
+
+    explorerListQueryMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: {
+        items: explorerItems,
+      },
+      refetch: listRefetch,
+    })
+
+    fsInfoQueryMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: {
+        hashes: ["MD5"],
+        features: { About: true },
+      },
+      refetch: fsInfoRefetch,
+    })
+
+    usageQueryMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: {
+        used: 1024,
+        free: 2048,
+        total: 3072,
+      },
+      refetch: usageRefetch,
+    })
+
+    renderWithProviders(<ExplorerPage />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }))
+
+    await waitFor(() => {
+      expect(listRefetch).toHaveBeenCalledTimes(1)
+      expect(fsInfoRefetch).toHaveBeenCalledTimes(1)
+      expect(usageRefetch).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  it("does not refetch usage when manually refreshing a backend without about support", async () => {
+    const listRefetch = vi.fn().mockResolvedValue(undefined)
+    const fsInfoRefetch = vi.fn().mockResolvedValue(undefined)
+    const usageRefetch = vi.fn().mockResolvedValue(undefined)
+
+    explorerListQueryMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: {
+        items: explorerItems,
+      },
+      refetch: listRefetch,
+    })
+
+    fsInfoQueryMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: {
+        hashes: ["MD5"],
+        features: {},
+      },
+      refetch: fsInfoRefetch,
+    })
+
+    usageQueryMock.mockReturnValue({
+      isLoading: false,
+      error: null,
+      data: {
+        used: 1024,
+        free: 2048,
+        total: 3072,
+      },
+      refetch: usageRefetch,
+    })
+
+    renderWithProviders(<ExplorerPage />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }))
+
+    await waitFor(() => {
+      expect(listRefetch).toHaveBeenCalledTimes(1)
+      expect(fsInfoRefetch).toHaveBeenCalledTimes(1)
+    })
+    expect(usageRefetch).not.toHaveBeenCalled()
   })
 
   it("resets the scroll position when the sort mode changes", async () => {

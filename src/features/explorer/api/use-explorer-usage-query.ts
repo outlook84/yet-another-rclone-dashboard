@@ -13,6 +13,7 @@ function useExplorerUsageQuery(queryRemote: string, enabled = true, remoteName?:
     queryKey: [...queryKeys.explorer(connectionScope, remote, ""), "usage"] as const,
     queryFn: () => api.explorer.getUsage({ remote, path: "" }),
     enabled: Boolean(remote) && enabled,
+    staleTime: 60 * 1000,
     retry: shouldRetryExplorerQuery,
   })
 }
