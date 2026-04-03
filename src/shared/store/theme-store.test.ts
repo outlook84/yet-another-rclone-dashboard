@@ -21,6 +21,7 @@ describe("theme-store", () => {
     window.localStorage.clear()
     document.documentElement.removeAttribute("data-theme")
     document.documentElement.style.colorScheme = ""
+    document.head.innerHTML = '<meta name="theme-color" content="#f5f7fb">'
     mockMatchMedia(false)
   })
 
@@ -31,6 +32,9 @@ describe("theme-store", () => {
 
     expect(document.documentElement.dataset.theme).toBe("light")
     expect(document.documentElement.style.colorScheme).toBe("light")
+    expect(document.querySelector('meta[name="theme-color"]')?.getAttribute("content")).toBe(
+      themeStore.THEME_COLORS.light,
+    )
   })
 
   it("persists vivid mode and uses light color scheme for vivid controls", async () => {
@@ -41,6 +45,9 @@ describe("theme-store", () => {
     expect(window.localStorage.getItem(themeStore.THEME_STORAGE_KEY)).toBe("vivid")
     expect(document.documentElement.dataset.theme).toBe("vivid")
     expect(document.documentElement.style.colorScheme).toBe("light")
+    expect(document.querySelector('meta[name="theme-color"]')?.getAttribute("content")).toBe(
+      themeStore.THEME_COLORS.vivid,
+    )
   })
 
   it("resolves system mode to dark when the OS prefers dark", async () => {
@@ -52,5 +59,8 @@ describe("theme-store", () => {
     expect(themeStore.resolveTheme("system", "dark")).toBe("dark")
     expect(document.documentElement.dataset.theme).toBe("dark")
     expect(document.documentElement.style.colorScheme).toBe("dark")
+    expect(document.querySelector('meta[name="theme-color"]')?.getAttribute("content")).toBe(
+      themeStore.THEME_COLORS.dark,
+    )
   })
 })

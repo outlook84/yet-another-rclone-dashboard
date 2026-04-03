@@ -1,6 +1,13 @@
 import { create } from "zustand"
 
 const THEME_STORAGE_KEY = "yard-theme-mode"
+const THEME_COLOR_META_SELECTOR = 'meta[name="theme-color"]'
+
+const THEME_COLORS: Record<ResolvedTheme, string> = {
+  light: "#f5f7fb",
+  dark: "#111821",
+  vivid: "#ffd3bf",
+}
 
 type ThemeMode = "system" | "light" | "dark" | "vivid"
 type ResolvedTheme = "light" | "dark" | "vivid"
@@ -44,6 +51,9 @@ function applyResolvedTheme(theme: ResolvedTheme) {
 
   document.documentElement.dataset.theme = theme
   document.documentElement.style.colorScheme = theme === "dark" ? "dark" : "light"
+  document
+    .querySelector<HTMLMetaElement>(THEME_COLOR_META_SELECTOR)
+    ?.setAttribute("content", THEME_COLORS[theme])
 }
 
 function syncTheme(mode: ThemeMode, systemTheme: ResolvedTheme) {
@@ -78,6 +88,7 @@ export {
   initializeThemeDocument,
   resolveTheme,
   type ResolvedTheme,
+  THEME_COLORS,
   THEME_STORAGE_KEY,
   type ThemeMode,
   useThemeStore,
