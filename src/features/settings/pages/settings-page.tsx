@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react"
 import { Loader2, RotateCcw } from "lucide-react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
@@ -64,6 +65,7 @@ function SettingsPage() {
   const connectionScope = useConnectionScope()
   const notify = useNotify()
   const queryClient = useQueryClient()
+  const mobileSaveBarHeight = "3.5rem"
   const [draftState, setDraftState] = useState<ScopedDraft | null>(null)
   const logLevelOptions = [
     { value: "ERROR", label: messages.settings.error() },
@@ -151,7 +153,10 @@ function SettingsPage() {
 
   return (
     <PageShell title={messages.settings.title()} hideBadge hideHeader bareContent contentStyle={{ paddingTop: 4 }}>
-      <div className="flex flex-col gap-5">
+      <div
+        className="flex flex-col gap-5 pt-[var(--settings-mobile-save-bar-height)] md:pt-0"
+        style={{ ["--settings-mobile-save-bar-height" as string]: mobileSaveBarHeight } as CSSProperties}
+      >
         <Alert variant="warning" className="border-[color:var(--app-info-border)] bg-[color:var(--app-info-bg)] text-[color:var(--app-text)]">
           <AlertDescription>
             {messages.settings.runtimeWarning()}
@@ -159,10 +164,6 @@ function SettingsPage() {
         </Alert>
 
         {settingsQuery.error ? <QueryErrorAlert title={messages.settings.couldntLoadSettings()} error={settingsQuery.error} /> : null}
-
-        <div className="flex items-center justify-end md:hidden">
-          {actionButtons}
-        </div>
 
         <Card className="app-surface-muted">
           <CardContent className="p-5">
@@ -357,12 +358,26 @@ function SettingsPage() {
                 </label>
               </div>
 
-              <div className="hidden md:flex flex-wrap items-center justify-start gap-3 pt-3">
+              <div className="hidden md:flex flex-wrap items-center justify-start gap-2 border-t border-[color:var(--app-border)] pt-4 mt-1">
                 {actionButtons}
               </div>
             </div>
           </CardContent>
         </Card>
+
+        <div className="pointer-events-none fixed top-[var(--app-topbar-height)] left-0 right-0 z-30 md:hidden">
+          <div
+            className="pointer-events-auto flex items-center justify-end px-4 py-2.5"
+            style={{
+              minHeight: mobileSaveBarHeight,
+              background: "var(--app-panel)",
+              borderBottom: "1px solid var(--app-border)",
+              boxShadow: "0 2px 12px rgba(0,0,0,0.10)",
+            }}
+          >
+            {actionButtons}
+          </div>
+        </div>
       </div>
     </PageShell>
   )
