@@ -123,4 +123,26 @@ describe("useConnectionStore", () => {
     useConnectionStore.getState().markValidated(serverInfo)
     expect(useConnectionStore.getState().validationRevision).toBe(2)
   })
+
+  it("updates server info without changing validation metadata", async () => {
+    const { useConnectionStore } = await import("@/shared/store/connection-store")
+
+    useConnectionStore.getState().markValidated(serverInfo)
+    const lastValidatedAt = useConnectionStore.getState().lastValidatedAt
+    const validationRevision = useConnectionStore.getState().validationRevision
+
+    useConnectionStore.getState().setServerInfo({
+      ...serverInfo,
+      version: "1.69.0",
+    })
+
+    expect(useConnectionStore.getState()).toMatchObject({
+      lastValidatedAt,
+      validationRevision,
+      lastServerInfo: {
+        ...serverInfo,
+        version: "1.69.0",
+      },
+    })
+  })
 })

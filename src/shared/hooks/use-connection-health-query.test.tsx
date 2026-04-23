@@ -8,8 +8,8 @@ import { useConnectionHealthQuery } from "@/shared/hooks/use-connection-health-q
 import { useConnectionStore } from "@/shared/store/connection-store"
 
 const apiMock = {
-  session: {
-    ping: vi.fn(),
+  jobs: {
+    batch: vi.fn(),
   },
 }
 
@@ -31,7 +31,7 @@ function createWrapper() {
 
 describe("useConnectionHealthQuery", () => {
   beforeEach(() => {
-    apiMock.session.ping.mockReset()
+    apiMock.jobs.batch.mockReset()
     useConnectionStore.setState({
       baseUrl: "http://localhost:5572",
       authMode: "basic",
@@ -47,15 +47,16 @@ describe("useConnectionHealthQuery", () => {
     })
 
     await waitFor(() => expect(result.current.fetchStatus).toBe("idle"))
-    expect(apiMock.session.ping).not.toHaveBeenCalled()
+    expect(apiMock.jobs.batch).not.toHaveBeenCalled()
   })
 
-  it("pings the validated backend", async () => {
-    apiMock.session.ping.mockResolvedValue({ ok: true, latencyMs: 12 })
+  it("checks health and refreshes the validated backend version", async () => {
+    apiMock.jobs.batch.mockResolvedValue([{ ok: true }, { version: "1.70.0" }])
     useConnectionStore.setState({
       lastValidatedAt: "2026-03-28T10:00:00.000Z",
       lastServerInfo: {
         product: "rclone",
+        version: "1.69.0",
         apiBaseUrl: "https://demo.example.com/rc",
       },
     })
@@ -65,7 +66,32 @@ describe("useConnectionHealthQuery", () => {
     })
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(apiMock.session.ping).toHaveBeenCalled()
-    expect(result.current.data).toEqual({ ok: true, latencyMs: 12 })
+    expect(apiMock.jobs.batch).toHaveBeenCalledWith([{ _path: "rc/noopauth" }, { _path: "core/version" }])
+    expect(result.current.data?.ok).toBe(true)
+    expect(result.current.data?.latencyMs).toEqual(expect.any(Number))
+    expect(useConnectionStore.getState().lastServerInfo).toMatchObject({
+      product: "rclone",
+      version: "1.70.0",
+      apiBaseUrl: "https://demo.example.com/rc",
+    })
+  })
+
+  it("keeps health success even when the version refresh payload fails", async () => {
+    apiMock.jobs.batch.mockResolvedValue([{ ok: true }, { error: "version unavailable", status: 500 }])
+    useConnectionStore.setState({
+      lastValidatedAt: "2026-03-28T10:00:00.000Z",
+      lastServerInfo: {
+        product: "rclone",
+        version: "1.69.0",
+        apiBaseUrl: "https://demo.example.com/rc",
+      },
+    })
+
+    const { result } = renderHook(() => useConnectionHealthQuery(), {
+      wrapper: createWrapper(),
+    })
+
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(useConnectionStore.getState().lastServerInfo?.version).toBe("1.69.0")
   })
 })

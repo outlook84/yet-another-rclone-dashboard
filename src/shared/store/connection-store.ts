@@ -34,6 +34,7 @@ interface ConnectionState {
   setAuthMode: (authMode: AuthMode) => void
   setBasicCredentials: (credentials: BasicCredentials) => void
   markValidated: (serverInfo: ServerInfo) => void
+  setServerInfo: (serverInfo: ServerInfo) => void
   clearValidation: () => void
 }
 
@@ -66,6 +67,12 @@ const useConnectionStore = create<ConnectionState>()(
           lastServerInfo,
           lastValidatedAt: new Date().toISOString(),
           validationRevision: state.validationRevision + 1,
+        })),
+      setServerInfo: (lastServerInfo) =>
+        set((state) => ({
+          lastServerInfo,
+          lastValidatedAt: state.lastValidatedAt,
+          validationRevision: state.validationRevision,
         })),
       clearValidation: () =>
         set({
