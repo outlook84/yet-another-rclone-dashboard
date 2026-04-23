@@ -5,14 +5,25 @@ import type { ServerInfo } from "@/shared/api/contracts/session"
 
 const FALLBACK_BASE_URL = "http://localhost:5572"
 
+const getDefaultBasePath = (pathname: string) => {
+  if (!pathname || pathname === "/") {
+    return ""
+  }
+
+  const normalizedPathname = pathname.replace(/\/index\.html$/i, "/")
+  const normalizedBasePath = normalizedPathname.replace(/\/+$/, "")
+
+  return normalizedBasePath === "/" ? "" : normalizedBasePath
+}
+
 const getDefaultBaseUrl = () => {
   if (typeof window === "undefined") {
     return FALLBACK_BASE_URL
   }
 
-  const { origin, protocol } = window.location
+  const { origin, pathname, protocol } = window.location
   if (protocol === "http:" || protocol === "https:") {
-    return origin
+    return `${origin}${getDefaultBasePath(pathname)}`
   }
 
   return FALLBACK_BASE_URL

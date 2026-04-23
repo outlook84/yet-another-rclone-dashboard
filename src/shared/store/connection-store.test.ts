@@ -32,12 +32,28 @@ describe("useConnectionStore", () => {
     })
   })
 
-  it("uses the browser origin for the default base url", async () => {
-    window.history.replaceState({}, "", "/internal/connect")
+  it("uses the browser origin for the root default base url", async () => {
+    window.history.replaceState({}, "", "/")
 
     const { useConnectionStore } = await import("@/shared/store/connection-store")
 
     expect(useConnectionStore.getState().baseUrl).toBe(window.location.origin)
+  })
+
+  it("includes the browser pathname prefix in the default base url", async () => {
+    window.history.replaceState({}, "", "/rclone/")
+
+    const { useConnectionStore } = await import("@/shared/store/connection-store")
+
+    expect(useConnectionStore.getState().baseUrl).toBe(`${window.location.origin}/rclone`)
+  })
+
+  it("drops index.html from the default base url pathname", async () => {
+    window.history.replaceState({}, "", "/rclone/index.html")
+
+    const { useConnectionStore } = await import("@/shared/store/connection-store")
+
+    expect(useConnectionStore.getState().baseUrl).toBe(`${window.location.origin}/rclone`)
   })
 
   it("clears validation when connection settings change", async () => {
