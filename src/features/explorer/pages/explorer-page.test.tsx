@@ -180,6 +180,8 @@ describe("ExplorerPage", () => {
         username: "gui",
         password: "secret",
       },
+      syncEnabled: true,
+      uploadEnabled: false,
       lastServerInfo: null,
     })
     useSavedConnectionsStore.setState({
@@ -195,7 +197,7 @@ describe("ExplorerPage", () => {
           uploadEnabled: false,
         },
       ],
-      selectedProfileId: "demo-profile",
+      activeProfileId: "demo-profile",
     })
     useExplorerStore.getState().setScope("http://localhost:5572::basic::gui")
     useExplorerUIStore.getState().setScope("http://localhost:5572::basic::gui")
@@ -355,7 +357,7 @@ describe("ExplorerPage", () => {
           uploadEnabled: false,
         },
       ],
-      selectedProfileId: "demo-profile",
+      activeProfileId: "demo-profile",
     })
     useExplorerStore.getState().setScope("http://localhost:5572::none::anonymous")
     useExplorerUIStore.getState().setScope("http://localhost:5572::none::anonymous")
@@ -673,7 +675,7 @@ describe("ExplorerPage", () => {
           uploadEnabled: false,
         },
       ],
-      selectedProfileId: "demo-profile",
+      activeProfileId: "demo-profile",
     })
     useExplorerStore.getState().setScope("http://localhost:5572::none::anonymous")
     useExplorerStore.getState().setLocation("demo", "folder")
@@ -811,7 +813,7 @@ describe("ExplorerPage", () => {
           uploadEnabled: false,
         },
       ],
-      selectedProfileId: "demo-profile",
+      activeProfileId: "demo-profile",
     })
     useExplorerStore.getState().setScope("http://localhost:5572::none::anonymous")
     useExplorerStore.getState().setLocation("demo", "folder")
@@ -876,7 +878,7 @@ describe("ExplorerPage", () => {
           uploadEnabled: false,
         },
       ],
-      selectedProfileId: "demo-profile",
+      activeProfileId: "demo-profile",
     })
     useExplorerStore.getState().setScope("http://localhost:5572::none::anonymous")
     useExplorerStore.getState().setLocation("demo", "folder")
@@ -926,7 +928,7 @@ describe("ExplorerPage", () => {
           uploadEnabled: false,
         },
       ],
-      selectedProfileId: "demo-profile",
+      activeProfileId: "demo-profile",
     })
     useExplorerStore.getState().setScope("http://localhost:5572::none::anonymous")
     useExplorerStore.getState().setLocation("demo", "folder")
@@ -977,7 +979,7 @@ describe("ExplorerPage", () => {
           uploadEnabled: false,
         },
       ],
-      selectedProfileId: "demo-profile",
+      activeProfileId: "demo-profile",
     })
     useExplorerStore.getState().setScope("http://localhost:5572::none::anonymous")
     useExplorerStore.getState().setLocation("demo", "folder")
@@ -1021,7 +1023,10 @@ describe("ExplorerPage", () => {
           uploadEnabled: true,
         },
       ],
-      selectedProfileId: "demo-profile",
+      activeProfileId: "demo-profile",
+    })
+    useConnectionStore.setState({
+      uploadEnabled: true,
     })
 
     renderWithProviders(<ExplorerPage />)
@@ -1095,7 +1100,7 @@ describe("ExplorerPage", () => {
           uploadEnabled: false,
         },
       ],
-      selectedProfileId: "demo-profile",
+      activeProfileId: "demo-profile",
     })
     useExplorerStore.getState().setScope("http://localhost:5572::none::anonymous")
     useExplorerStore.getState().setLocation("demo", "folder")

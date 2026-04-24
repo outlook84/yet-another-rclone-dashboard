@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -41,10 +41,15 @@ describe("ConnectPage", () => {
         username: "gui",
         password: "secret",
       },
+      syncEnabled: false,
+      uploadEnabled: false,
+      lastValidatedAt: null,
+      lastServerInfo: null,
+      validationRevision: 0,
     })
     useSavedConnectionsStore.setState({
       profiles: [],
-      selectedProfileId: null,
+      activeProfileId: null,
     })
     useExplorerUIStore.setState({
       scopeKey: null,
@@ -63,7 +68,7 @@ describe("ConnectPage", () => {
     })
   })
 
-  it("validates connection and renders server info", async () => {
+  it("validates the current draft and updates runtime connection state", async () => {
     const pingMock = vi.fn().mockResolvedValue({
       latencyMs: 12,
     })
@@ -92,30 +97,30 @@ describe("ConnectPage", () => {
 
     renderWithProviders(<ConnectPage />)
 
-    fireEvent.click(screen.getByRole("button", { name: "Validate Connection" }))
+    fireEvent.click(screen.getByRole("checkbox", { name: "Enable Upload" }))
+    fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Confirm" }))
 
     await waitFor(() => {
-      expect(createClientMock).toHaveBeenCalledWith({
-        baseUrl: "http://localhost:5572",
-        authMode: "basic",
-        basicCredentials: {
-          username: "gui",
-          password: "secret",
-        },
-      })
+      expect((screen.getByRole("checkbox", { name: "Enable Upload" }) as HTMLInputElement).checked).toBe(true)
     })
-    expect(createClientMock).toHaveBeenCalledWith({
-      baseUrl: "http://localhost:5572",
-      authMode: "none",
-      basicCredentials: {
-        username: "gui",
-        password: "secret",
-      },
-    })
+
+    fireEvent.click(screen.getByRole("button", { name: "Save & Connect" }))
 
     await waitFor(() => {
       expect(screen.getByText("Connection Ready")).not.toBeNull()
       expect(screen.getByText("rclone responded in 12 ms.")).not.toBeNull()
+    })
+
+    expect(useConnectionStore.getState()).toMatchObject({
+      baseUrl: "http://localhost:5572",
+      authMode: "basic",
+      uploadEnabled: true,
+      lastValidatedAt: expect.any(String),
+      lastServerInfo: {
+        product: "rclone",
+        version: "1.70.0",
+        apiBaseUrl: "http://localhost:5572",
+      },
     })
     expect(removeQueriesMock).toHaveBeenCalledWith({
       queryKey: ["scope", "http://localhost:5572::basic::gui"],
@@ -126,7 +131,93 @@ describe("ConnectPage", () => {
     expect(useExplorerUIStore.getState().actionsByScope["http://localhost:5572::basic::gui"]?.mediaPreview).toBeNull()
   })
 
-  it("corrects the connection auth mode to none when the backend accepts anonymous access", async () => {
+  it("initializes and reconnects from the active saved profile", async () => {
+    const pingMock = vi.fn().mockResolvedValue({
+      latencyMs: 16,
+    })
+    const serverInfoMock = vi.fn().mockResolvedValue({
+      product: "rclone",
+      version: "1.70.0",
+      apiBaseUrl: "https://demo.example.com/rc",
+    })
+    createClientMock.mockImplementation(() => ({
+      session: {
+        ping: pingMock,
+        getServerInfo: serverInfoMock,
+      },
+    }))
+    useConnectionStore.setState({
+      baseUrl: "https://demo.example.com/rc",
+      authMode: "basic",
+      basicCredentials: {
+        username: "demo",
+        password: "pw",
+      },
+      syncEnabled: true,
+      uploadEnabled: false,
+    })
+    useSavedConnectionsStore.setState({
+      profiles: [
+        {
+          id: "profile-1",
+          name: "Demo Profile",
+          baseUrl: "https://demo.example.com/rc",
+          authMode: "basic",
+          basicCredentials: {
+            username: "demo",
+            password: "pw",
+          },
+          syncEnabled: true,
+          uploadEnabled: false,
+          updatedAt: "2026-03-29T00:00:00.000Z",
+        },
+      ],
+      activeProfileId: "profile-1",
+    })
+
+    renderWithProviders(<ConnectPage />)
+
+    await waitFor(() => {
+      expect((screen.getByRole("combobox", { name: "Saved Connections" }) as HTMLSelectElement).value).toBe("profile-1")
+    })
+    expect(screen.getByDisplayValue("https://demo.example.com/rc")).not.toBeNull()
+    expect((screen.getByRole("checkbox", { name: "Enable Sync" }) as HTMLInputElement).checked).toBe(true)
+    await waitFor(() => {
+      expect(screen.getByText("Connection Ready")).not.toBeNull()
+    })
+    expect(useConnectionStore.getState()).toMatchObject({
+      baseUrl: "https://demo.example.com/rc",
+      authMode: "none",
+      basicCredentials: {
+        username: "demo",
+        password: "pw",
+      },
+      syncEnabled: true,
+      uploadEnabled: false,
+      lastValidatedAt: expect.any(String),
+    })
+  })
+
+  it("saves and connects the selected profile after validation", async () => {
+    useSavedConnectionsStore.setState({
+      profiles: [
+        {
+          id: "profile-1",
+          name: "Template",
+          baseUrl: "http://localhost:5572",
+          authMode: "basic",
+          basicCredentials: {
+            username: "gui",
+            password: "secret",
+          },
+          syncEnabled: true,
+          uploadEnabled: false,
+          updatedAt: "2026-03-29T00:00:00.000Z",
+        },
+      ],
+      activeProfileId: "profile-1",
+    })
+
     createClientMock.mockImplementation(() => ({
       session: {
         ping: vi.fn().mockResolvedValue({
@@ -141,42 +232,221 @@ describe("ConnectPage", () => {
     }))
 
     renderWithProviders(<ConnectPage />)
-    createClientMock.mockClear()
 
-    fireEvent.click(screen.getByRole("button", { name: "Validate Connection" }))
+    fireEvent.change(screen.getAllByRole("combobox")[0], {
+      target: { value: "profile-1" },
+    })
+    fireEvent.change(screen.getByDisplayValue("http://localhost:5572"), {
+      target: { value: "http://localhost:5573" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Save & Connect" }))
 
     await waitFor(() => {
       expect(screen.getByText("Connection Ready")).not.toBeNull()
     })
 
-    expect(createClientMock).toHaveBeenCalledWith({
+    await waitFor(() => {
+      expect(useSavedConnectionsStore.getState().profiles[0]).toMatchObject({
+        id: "profile-1",
+        baseUrl: "http://localhost:5573",
+        syncEnabled: true,
+      })
+    })
+    expect(useConnectionStore.getState()).toMatchObject({
+      baseUrl: "http://localhost:5573",
+      authMode: "none",
+      syncEnabled: true,
+      uploadEnabled: false,
+      lastValidatedAt: expect.any(String),
+    })
+  })
+
+  it("does not auto-connect partially edited saved drafts", async () => {
+    useSavedConnectionsStore.setState({
+      profiles: [
+        {
+          id: "profile-1",
+          name: "Template",
+          baseUrl: "http://localhost:5572",
+          authMode: "basic",
+          basicCredentials: {
+            username: "gui",
+            password: "secret",
+          },
+          syncEnabled: true,
+          uploadEnabled: false,
+          updatedAt: "2026-03-29T00:00:00.000Z",
+        },
+      ],
+      activeProfileId: "profile-1",
+    })
+
+    createClientMock.mockImplementation(() => ({
+      session: {
+        ping: vi.fn().mockResolvedValue({
+          latencyMs: 8,
+        }),
+        getServerInfo: vi.fn().mockResolvedValue({
+          product: "rclone",
+          version: "1.70.0",
+          apiBaseUrl: "http://localhost:5572",
+        }),
+      },
+    }))
+
+    renderWithProviders(<ConnectPage />)
+
+    fireEvent.change(screen.getAllByRole("combobox")[0], {
+      target: { value: "profile-1" },
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText("Connection Ready")).not.toBeNull()
+    })
+    createClientMock.mockClear()
+
+    fireEvent.change(screen.getByDisplayValue("http://localhost:5572"), {
+      target: { value: "http://localhost:5573" },
+    })
+
+    expect(createClientMock).not.toHaveBeenCalled()
+    expect(useSavedConnectionsStore.getState().profiles[0]).toMatchObject({
+      id: "profile-1",
       baseUrl: "http://localhost:5572",
+    })
+  })
+
+  it("seeds the connect form from runtime state instead of the active saved profile", () => {
+    useSavedConnectionsStore.setState({
+      profiles: [
+        {
+          id: "profile-1",
+          name: "Template",
+          baseUrl: "http://localhost:5572",
+          authMode: "basic",
+          basicCredentials: {
+            username: "gui",
+            password: "secret",
+          },
+          syncEnabled: true,
+          uploadEnabled: false,
+          updatedAt: "2026-03-29T00:00:00.000Z",
+        },
+      ],
+      activeProfileId: "profile-1",
+    })
+    useConnectionStore.setState({
+      baseUrl: "http://localhost:5573",
       authMode: "none",
       basicCredentials: {
         username: "gui",
         password: "secret",
       },
+      syncEnabled: false,
+      uploadEnabled: true,
+      lastValidatedAt: "2026-03-29T00:00:00.000Z",
+      lastServerInfo: {
+        product: "rclone",
+        version: "1.70.0",
+        apiBaseUrl: "http://localhost:5573",
+      },
     })
-    expect(createClientMock).not.toHaveBeenCalledWith({
+
+    renderWithProviders(<ConnectPage />)
+
+    expect(screen.getByDisplayValue("http://localhost:5573")).not.toBeNull()
+    expect((screen.getAllByRole("combobox")[0] as HTMLSelectElement).value).toBe("")
+    expect((screen.getByRole("checkbox", { name: "Enable Sync" }) as HTMLInputElement).checked).toBe(false)
+    expect((screen.getByRole("checkbox", { name: "Enable Upload" }) as HTMLInputElement).checked).toBe(true)
+  })
+
+  it("connects automatically when switching saved profiles", async () => {
+    useSavedConnectionsStore.setState({
+      profiles: [
+        {
+          id: "profile-5",
+          name: "Template",
+          baseUrl: "http://localhost:5572",
+          authMode: "basic",
+          basicCredentials: {
+            username: "gui",
+            password: "secret",
+          },
+          syncEnabled: true,
+          uploadEnabled: true,
+          updatedAt: "2026-03-29T00:00:00.000Z",
+        },
+        {
+          id: "profile-6",
+          name: "Backup",
+          baseUrl: "https://backup.example.com/rc",
+          authMode: "none",
+          basicCredentials: {
+            username: "",
+            password: "",
+          },
+          syncEnabled: false,
+          uploadEnabled: false,
+          updatedAt: "2026-03-29T00:00:00.000Z",
+        },
+      ],
+      activeProfileId: "profile-5",
+    })
+    useConnectionStore.setState({
       baseUrl: "http://localhost:5572",
       authMode: "basic",
       basicCredentials: {
         username: "gui",
         password: "secret",
       },
+      syncEnabled: true,
+      uploadEnabled: true,
+      lastValidatedAt: "2026-03-29T00:00:00.000Z",
+      lastServerInfo: {
+        product: "rclone",
+        version: "1.70.0",
+        apiBaseUrl: "http://localhost:5572",
+      },
     })
-    expect(useConnectionStore.getState().authMode).toBe("none")
-    expect(removeQueriesMock).toHaveBeenCalledWith({
-      queryKey: ["scope", "http://localhost:5572::none::anonymous"],
+    createClientMock.mockImplementation(() => ({
+      session: {
+        ping: vi.fn().mockResolvedValue({
+          latencyMs: 12,
+        }),
+        getServerInfo: vi.fn().mockResolvedValue({
+          product: "rclone",
+          version: "1.70.0",
+          apiBaseUrl: "https://backup.example.com/rc",
+        }),
+      },
+    }))
+
+    renderWithProviders(<ConnectPage />)
+
+    fireEvent.change(screen.getAllByRole("combobox")[0], {
+      target: { value: "profile-6" },
+    })
+
+    expect(screen.getByDisplayValue("https://backup.example.com/rc")).not.toBeNull()
+    await waitFor(() => {
+      expect(screen.getByText("Connection Ready")).not.toBeNull()
+      expect(useSavedConnectionsStore.getState().activeProfileId).toBe("profile-6")
+      expect(useConnectionStore.getState()).toMatchObject({
+        baseUrl: "https://backup.example.com/rc",
+        authMode: "none",
+        syncEnabled: false,
+        uploadEnabled: false,
+        lastValidatedAt: expect.any(String),
+      })
     })
   })
 
-  it("rewrites the selected saved connection auth mode after validation detects anonymous access", async () => {
+  it("clears the validation banner when switching saved drafts", async () => {
     useSavedConnectionsStore.setState({
       profiles: [
         {
           id: "profile-1",
-          name: "localhost:5572 (gui)",
+          name: "Template",
           baseUrl: "http://localhost:5572",
           authMode: "basic",
           basicCredentials: {
@@ -187,70 +457,135 @@ describe("ConnectPage", () => {
           uploadEnabled: false,
           updatedAt: "2026-03-29T00:00:00.000Z",
         },
+        {
+          id: "profile-2",
+          name: "Backup",
+          baseUrl: "https://backup.example.com/rc",
+          authMode: "none",
+          basicCredentials: {
+            username: "",
+            password: "",
+          },
+          syncEnabled: false,
+          uploadEnabled: false,
+          updatedAt: "2026-03-29T00:00:00.000Z",
+        },
       ],
-      selectedProfileId: "profile-1",
+      activeProfileId: "profile-1",
+    })
+    createClientMock.mockImplementation(({ authMode }: { authMode: string }) => {
+      if (authMode === "none") {
+        return {
+          session: {
+            ping: vi.fn().mockRejectedValue(new UnknownApiError("auth required", { code: "api_error", status: 401 })),
+            getServerInfo: vi.fn(),
+          },
+        }
+      }
+
+      return {
+        session: {
+          ping: vi.fn().mockResolvedValue({
+            latencyMs: 12,
+          }),
+          getServerInfo: vi.fn().mockResolvedValue({
+            product: "rclone",
+            version: "1.70.0",
+            apiBaseUrl: "http://localhost:5572",
+          }),
+        },
+      }
     })
 
-    createClientMock.mockImplementation(() => ({
-      session: {
-        ping: vi.fn().mockResolvedValue({
-          latencyMs: 8,
-        }),
-        getServerInfo: vi.fn().mockResolvedValue({
-          product: "rclone",
-          version: "1.70.0",
-          apiBaseUrl: "http://localhost:5572",
-        }),
-      },
-    }))
-
     renderWithProviders(<ConnectPage />)
-    createClientMock.mockClear()
 
-    fireEvent.click(screen.getByRole("button", { name: "Validate Connection" }))
+    fireEvent.click(screen.getByRole("button", { name: "Save & Connect" }))
 
     await waitFor(() => {
       expect(screen.getByText("Connection Ready")).not.toBeNull()
     })
 
-    expect(useSavedConnectionsStore.getState().profiles[0]).toMatchObject({
-      id: "profile-1",
-      name: "localhost:5572",
+    fireEvent.change(screen.getAllByRole("combobox")[0], {
+      target: { value: "profile-2" },
+    })
+
+    expect(screen.queryByText("Connection Ready")).toBeNull()
+    expect(screen.queryByText("rclone responded in 12 ms.")).toBeNull()
+  })
+
+  it("clears the validation banner when editing the current draft", async () => {
+    createClientMock.mockImplementation(({ authMode }: { authMode: string }) => {
+      if (authMode === "none") {
+        return {
+          session: {
+            ping: vi.fn().mockRejectedValue(new UnknownApiError("auth required", { code: "api_error", status: 401 })),
+            getServerInfo: vi.fn(),
+          },
+        }
+      }
+
+      return {
+        session: {
+          ping: vi.fn().mockResolvedValue({
+            latencyMs: 12,
+          }),
+          getServerInfo: vi.fn().mockResolvedValue({
+            product: "rclone",
+            version: "1.70.0",
+            apiBaseUrl: "http://localhost:5572",
+          }),
+        },
+      }
+    })
+
+    renderWithProviders(<ConnectPage />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Save & Connect" }))
+
+    await waitFor(() => {
+      expect(screen.getByText("Connection Ready")).not.toBeNull()
+    })
+
+    fireEvent.change(screen.getByDisplayValue("http://localhost:5572"), {
+      target: { value: "http://localhost:5573" },
+    })
+
+    expect(screen.queryByText("Connection Ready")).toBeNull()
+    expect(screen.queryByText("rclone responded in 12 ms.")).toBeNull()
+  })
+
+  it("saves and connects the current draft as a new profile", async () => {
+    useConnectionStore.setState({
       baseUrl: "http://localhost:5572",
-      authMode: "none",
+      authMode: "basic",
       basicCredentials: {
         username: "gui",
         password: "secret",
       },
-      syncEnabled: true,
-      uploadEnabled: false,
+      syncEnabled: false,
+      uploadEnabled: true,
+      lastValidatedAt: "2026-03-29T00:00:00.000Z",
+      lastServerInfo: {
+        product: "rclone",
+        version: "1.70.0",
+        apiBaseUrl: "http://localhost:5572",
+      },
+      validationRevision: 1,
     })
-  })
 
-  it("keeps a custom saved connection name while correcting the auth mode", async () => {
-    useSavedConnectionsStore.setState({
-      profiles: [
-        {
-          id: "profile-2",
-          name: "Office Rclone",
-          baseUrl: "http://localhost:5572",
-          authMode: "basic",
-          basicCredentials: {
-            username: "gui",
-            password: "secret",
-          },
-          syncEnabled: true,
-          uploadEnabled: false,
-          updatedAt: "2026-03-29T00:00:00.000Z",
-        },
-      ],
-      selectedProfileId: "profile-2",
+    renderWithProviders(<ConnectPage />)
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Enable Sync" }))
+    fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Confirm" }))
+
+    await waitFor(() => {
+      expect((screen.getByRole("checkbox", { name: "Enable Sync" }) as HTMLInputElement).checked).toBe(true)
     })
 
     createClientMock.mockImplementation(() => ({
       session: {
         ping: vi.fn().mockResolvedValue({
-          latencyMs: 8,
+          latencyMs: 12,
         }),
         getServerInfo: vi.fn().mockResolvedValue({
           product: "rclone",
@@ -260,50 +595,87 @@ describe("ConnectPage", () => {
       },
     }))
 
-    renderWithProviders(<ConnectPage />)
-    createClientMock.mockClear()
+    fireEvent.click(screen.getByRole("button", { name: "Save & Connect" }))
 
-    fireEvent.click(screen.getByRole("button", { name: "Validate Connection" }))
+    await waitFor(() => {
+      expect(useSavedConnectionsStore.getState().profiles[0]).toMatchObject({
+        syncEnabled: true,
+        uploadEnabled: true,
+      })
+    })
+    expect(useSavedConnectionsStore.getState().activeProfileId).toBe(useSavedConnectionsStore.getState().profiles[0]?.id)
+    expect(useConnectionStore.getState()).toMatchObject({
+      baseUrl: "http://localhost:5572",
+      authMode: "none",
+      syncEnabled: true,
+      uploadEnabled: true,
+      lastValidatedAt: expect.any(String),
+      validationRevision: 2,
+    })
+  })
+
+  it("disables saving while connection validation is pending", async () => {
+    let resolvePing: ((value: { latencyMs: number }) => void) | null = null
+    let resolveServerInfo: ((value: {
+      product: string
+      version: string
+      apiBaseUrl: string
+    }) => void) | null = null
+
+    createClientMock.mockImplementation(({ authMode }: { authMode: string }) => {
+      if (authMode === "none") {
+        return {
+          session: {
+            ping: vi.fn().mockRejectedValue(new UnknownApiError("auth required", { code: "api_error", status: 401 })),
+            getServerInfo: vi.fn(),
+          },
+        }
+      }
+
+      return {
+        session: {
+          ping: vi.fn().mockImplementation(() => new Promise<{ latencyMs: number }>((resolve) => {
+            resolvePing = resolve
+          })),
+          getServerInfo: vi.fn().mockImplementation(() => new Promise<{
+            product: string
+            version: string
+            apiBaseUrl: string
+          }>((resolve) => {
+            resolveServerInfo = resolve
+          })),
+        },
+      }
+    })
+
+    renderWithProviders(<ConnectPage />)
+
+    const saveButton = screen.getByRole("button", { name: "Save & Connect" })
+    fireEvent.click(screen.getByRole("button", { name: "Save & Connect" }))
+
+    await waitFor(() => {
+      expect(saveButton.hasAttribute("disabled")).toBe(true)
+    })
+
+    fireEvent.click(saveButton)
+    expect(useSavedConnectionsStore.getState().profiles).toEqual([])
+
+    expect(resolvePing).not.toBeNull()
+    expect(resolveServerInfo).not.toBeNull()
+
+    resolvePing!({ latencyMs: 12 })
+    resolveServerInfo!({
+      product: "rclone",
+      version: "1.70.0",
+      apiBaseUrl: "http://localhost:5572",
+    })
 
     await waitFor(() => {
       expect(screen.getByText("Connection Ready")).not.toBeNull()
     })
-
-    expect(useSavedConnectionsStore.getState().profiles[0]).toMatchObject({
-      id: "profile-2",
-      name: "Office Rclone",
-      authMode: "none",
-      uploadEnabled: false,
-    })
   })
 
-  it("requires confirmation before enabling uploads and saves the flag", async () => {
-    renderWithProviders(<ConnectPage />)
-
-    const uploadToggle = screen.getByRole("checkbox", { name: "Enable Upload" })
-    fireEvent.click(uploadToggle)
-
-    const dialog = await screen.findByRole("dialog")
-    expect(
-      within(dialog).getByText(
-        "Browser uploads may fail for large files or when the request path is limited by a proxy or CDN. Only enable this for profiles where you accept that limitation.",
-      ),
-    ).not.toBeNull()
-
-    fireEvent.click(within(dialog).getByRole("button", { name: "Confirm" }))
-
-    await waitFor(() => {
-      expect((uploadToggle as HTMLInputElement).checked).toBe(true)
-    })
-
-    fireEvent.click(screen.getByRole("button", { name: "Save Current" }))
-
-    expect(useSavedConnectionsStore.getState().profiles[0]).toMatchObject({
-      uploadEnabled: true,
-    })
-  })
-
-  it("shows error notification when validation fails", async () => {
+  it("shows error feedback when validation fails", async () => {
     createClientMock.mockImplementation(() => ({
       session: {
         ping: vi.fn().mockRejectedValue(new Error("rc endpoint unavailable")),
@@ -313,7 +685,7 @@ describe("ConnectPage", () => {
 
     renderWithProviders(<ConnectPage />)
 
-    fireEvent.click(screen.getByRole("button", { name: "Validate Connection" }))
+    fireEvent.click(screen.getByRole("button", { name: "Save & Connect" }))
 
     await waitFor(() => {
       expect(screen.getByText("Connection Failed")).not.toBeNull()

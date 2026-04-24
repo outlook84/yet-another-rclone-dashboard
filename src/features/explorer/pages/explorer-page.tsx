@@ -35,7 +35,6 @@ import { getExplorerMediaKind } from "@/features/explorer/lib/media-kind"
 import { buildRcServeUrl } from "@/features/explorer/lib/rc-serve-url"
 import { joinPath, normalizePath, parentPath } from "@/features/explorer/lib/path-utils"
 import { useExplorerStore } from "@/features/explorer/store/explorer-store"
-import { useSavedConnectionsStore } from "@/features/auth/store/saved-connections-store"
 import { useConfirm } from "@/shared/components/confirm-provider"
 import { EmptyState } from "@/shared/components/empty-state"
 import { LoadingState } from "@/shared/components/loading-state"
@@ -123,8 +122,6 @@ function ExplorerPage() {
   const setSelectedPathsByTab = useExplorerUIStore((state) => state.setSelectedPathsByTab)
   const setMediaPreview = useExplorerUIStore((state) => state.setMediaPreview)
   const setUploadCenterCollapsed = useUploadCenterStore((state) => state.setCollapsed)
-  const profiles = useSavedConnectionsStore((state) => state.profiles)
-  const selectedProfileId = useSavedConnectionsStore((state) => state.selectedProfileId)
   const sortMode = useMemo(
     () => tabs.find((tab) => tab.id === activeTabId)?.sortMode ?? "name-asc",
     [activeTabId, tabs],
@@ -416,14 +413,8 @@ function ExplorerPage() {
         size: item.size,
       }))
   }, [currentPath, explorerQuery.data?.items, selectedPaths])
-  const syncEnabled = useMemo(
-    () => profiles.find((profile) => profile.id === selectedProfileId)?.syncEnabled ?? false,
-    [profiles, selectedProfileId],
-  )
-  const uploadEnabled = useMemo(
-    () => profiles.find((profile) => profile.id === selectedProfileId)?.uploadEnabled ?? false,
-    [profiles, selectedProfileId],
-  )
+  const syncEnabled = useConnectionStore((state) => state.syncEnabled)
+  const uploadEnabled = useConnectionStore((state) => state.uploadEnabled)
   const selectedPathSet = useMemo(() => new Set(selectedPaths), [selectedPaths])
   const allVisibleSelected =
     visibleItems.length > 0 &&

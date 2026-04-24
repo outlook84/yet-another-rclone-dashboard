@@ -126,6 +126,19 @@ describe("RootLayout", () => {
     })
   })
 
+  it("redirects protected routes back to connect when the current unsaved connection is not validated", async () => {
+    useConnectionStore.setState({
+      lastValidatedAt: null,
+      lastServerInfo: null,
+    })
+
+    renderRootLayout(["/overview"])
+
+    await waitFor(() => {
+      expect(screen.getByText("Connect Screen")).not.toBeNull()
+    })
+  })
+
   it("does not auto-redirect away when connect is opened from navigation", async () => {
     renderRootLayout(["/overview"])
 

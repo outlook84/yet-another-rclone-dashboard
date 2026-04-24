@@ -15,10 +15,16 @@ interface SavedConnectionProfile {
 
 interface SavedConnectionsState {
   profiles: SavedConnectionProfile[]
-  selectedProfileId: string | null
+  activeProfileId: string | null
   saveProfile: (profile: Omit<SavedConnectionProfile, "id" | "updatedAt"> & { id?: string }) => string
-  selectProfile: (profileId: string | null) => void
+  setActiveProfile: (profileId: string | null) => void
   deleteProfile: (profileId: string) => void
+}
+
+type PersistedSavedConnectionsState = {
+  profiles?: SavedConnectionProfile[]
+  activeProfileId?: string | null
+  selectedProfileId?: string | null
 }
 
 const createProfileName = (baseUrl: string, authMode: AuthMode, username: string) => {
@@ -36,7 +42,7 @@ const useSavedConnectionsStore = create<SavedConnectionsState>()(
   persist(
     (set) => ({
       profiles: [],
-      selectedProfileId: null,
+      activeProfileId: null,
       saveProfile: (profile) => {
         const profileId = profile.id ?? globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`
         const nextProfile: SavedConnectionProfile = {
@@ -59,21 +65,30 @@ const useSavedConnectionsStore = create<SavedConnectionsState>()(
 
           return {
             profiles,
-            selectedProfileId: profileId,
+            activeProfileId: profileId,
           }
         })
 
         return profileId
       },
-      selectProfile: (selectedProfileId) => set({ selectedProfileId }),
+      setActiveProfile: (activeProfileId) => set({ activeProfileId }),
       deleteProfile: (profileId) =>
         set((state) => ({
           profiles: state.profiles.filter((item) => item.id !== profileId),
-          selectedProfileId: state.selectedProfileId === profileId ? null : state.selectedProfileId,
+          activeProfileId: state.activeProfileId === profileId ? null : state.activeProfileId,
         })),
     }),
     {
       name: "yard-saved-connections",
+      merge: (persistedState, currentState) => {
+        const state = persistedState as PersistedSavedConnectionsState | undefined
+
+        return {
+          ...currentState,
+          profiles: state?.profiles ?? currentState.profiles,
+          activeProfileId: state?.activeProfileId ?? state?.selectedProfileId ?? currentState.activeProfileId,
+        }
+      },
     },
   ),
 )

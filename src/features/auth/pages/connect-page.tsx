@@ -1,5 +1,5 @@
-import { Loader2, Save, Trash2 } from "lucide-react"
-import { useMemo, useState } from "react"
+import { Save, Trash2 } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { createRcloneRcAppApiClient } from "@/shared/api/client/app-api-client"
 import { useExplorerUIStore } from "@/features/explorer/store/explorer-ui-store"
@@ -18,10 +18,37 @@ import { inputExamples, resolveInputExample } from "@/shared/i18n/input-examples
 import { toErrorMessage } from "@/shared/lib/error-utils"
 import { cn } from "@/shared/lib/cn"
 import { queryKeys } from "@/shared/lib/query-keys"
-import { createProfileName, useSavedConnectionsStore } from "@/features/auth/store/saved-connections-store"
+import {
+  createProfileName,
+  useSavedConnectionsStore,
+  type SavedConnectionProfile,
+} from "@/features/auth/store/saved-connections-store"
+import {
+  areDraftSettingsEqual,
+  toDraftFromConnection,
+  toDraftFromProfile,
+  type ConnectionDraft,
+} from "@/features/auth/lib/connection-draft"
 import { buildConnectionScope, useConnectionScope } from "@/shared/hooks/use-connection-scope"
 import type { AuthMode } from "@/shared/api/contracts/auth"
 import { useConnectionStore } from "@/shared/store/connection-store"
+
+function resolveSavedProfileName(profile: SavedConnectionProfile, draft: ConnectionDraft) {
+  const previousGeneratedName = createProfileName(
+    profile.baseUrl,
+    profile.authMode,
+    profile.basicCredentials.username,
+  )
+
+  return profile.name === previousGeneratedName
+    ? createProfileName(draft.baseUrl, draft.authMode, draft.basicCredentials.username)
+    : profile.name
+}
+
+type SaveAndConnectParams = {
+  draft: ConnectionDraft
+  profileId: string | null
+}
 
 async function validateConnectionWithMode(input: {
   baseUrl: string
@@ -71,16 +98,17 @@ function ConnectPage() {
     baseUrl,
     authMode,
     basicCredentials,
+    syncEnabled,
+    uploadEnabled,
+    lastValidatedAt,
+    lastServerInfo,
     applyConnection,
-    setBaseUrl,
-    setAuthMode,
-    setBasicCredentials,
     markValidated,
   } = useConnectionStore()
   const profiles = useSavedConnectionsStore((state) => state.profiles)
-  const selectedProfileId = useSavedConnectionsStore((state) => state.selectedProfileId)
+  const activeProfileId = useSavedConnectionsStore((state) => state.activeProfileId)
   const saveProfile = useSavedConnectionsStore((state) => state.saveProfile)
-  const selectProfile = useSavedConnectionsStore((state) => state.selectProfile)
+  const setActiveProfile = useSavedConnectionsStore((state) => state.setActiveProfile)
   const deleteProfile = useSavedConnectionsStore((state) => state.deleteProfile)
   const notify = useNotify()
   const confirm = useConfirm()
@@ -88,38 +116,48 @@ function ConnectPage() {
   const connectionScope = useConnectionScope()
   const clearAllMediaPreviews = useExplorerUIStore((state) => state.clearAllMediaPreviews)
   const setOverviewMemStats = useOverviewStore((state) => state.setMemStats)
-  const [syncEnabledDraftState, setSyncEnabledDraftState] = useState<{
-    profileId: string | null
-    value: boolean
-  }>({
-    profileId: null,
-    value: false,
+  const runtimeDraft = useMemo(() => toDraftFromConnection({
+    baseUrl,
+    authMode,
+    basicCredentials,
+    syncEnabled,
+    uploadEnabled,
+  }), [authMode, baseUrl, basicCredentials, syncEnabled, uploadEnabled])
+  const [initialAutoConnectTarget] = useState<SaveAndConnectParams | null>(() => {
+    const activeProfile = activeProfileId === null
+      ? null
+      : profiles.find((profile) => profile.id === activeProfileId) ?? null
+
+    return activeProfile && areDraftSettingsEqual(runtimeDraft, activeProfile)
+      ? {
+          draft: toDraftFromProfile(activeProfile),
+          profileId: activeProfile.id,
+        }
+      : null
   })
-  const [uploadEnabledDraftState, setUploadEnabledDraftState] = useState<{
-    profileId: string | null
-    value: boolean
-  }>({
-    profileId: null,
-    value: false,
-  })
-  const selectedProfile = useMemo(
-    () => profiles.find((profile) => profile.id === selectedProfileId) ?? null,
-    [profiles, selectedProfileId],
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(
+    () => initialAutoConnectTarget?.profileId ?? null,
   )
-  const syncEnabledDraft =
-    syncEnabledDraftState.profileId === (selectedProfile?.id ?? null)
-      ? syncEnabledDraftState.value
-      : (selectedProfile?.syncEnabled ?? false)
-  const uploadEnabledDraft =
-    uploadEnabledDraftState.profileId === (selectedProfile?.id ?? null)
-      ? uploadEnabledDraftState.value
-      : (selectedProfile?.uploadEnabled ?? false)
+  const [currentDraft, setCurrentDraft] = useState<ConnectionDraft>(
+    () => initialAutoConnectTarget?.draft ?? runtimeDraft,
+  )
+  const currentProfile = useMemo(
+    () => (selectedProfileId === null
+      ? null
+      : profiles.find((profile) => profile.id === selectedProfileId) ?? null),
+    [selectedProfileId, profiles],
+  )
+  const hasAutoConnectedRef = useRef(false)
+  const updateCurrentDraft = (updater: (draft: ConnectionDraft) => ConnectionDraft) => {
+    validateConnection.reset()
+    setCurrentDraft((draft) => updater(draft))
+  }
 
   const validateConnection = useMutation({
-    mutationFn: async (params?: { baseUrl: string; authMode: string; basicCredentials?: typeof basicCredentials }) => {
-      const targetBaseUrl = params?.baseUrl ?? baseUrl
-      const targetAuthMode = (params?.authMode ?? authMode) as AuthMode
-      const targetBasicCredentials = params?.basicCredentials ?? basicCredentials
+    mutationFn: async ({ draft }: SaveAndConnectParams) => {
+      const targetBaseUrl = draft.baseUrl
+      const targetAuthMode = draft.authMode
+      const targetBasicCredentials = draft.basicCredentials
 
       return validateConnectionAndDetectAuthMode({
         baseUrl: targetBaseUrl,
@@ -128,9 +166,18 @@ function ConnectPage() {
       })
     },
     onSuccess: (result, params) => {
-      const nextBaseUrl = params?.baseUrl ?? baseUrl
+      const nextBaseUrl = params.draft.baseUrl
       const nextAuthMode = result.authMode
-      const nextBasicCredentials = params?.basicCredentials ?? basicCredentials
+      const nextBasicCredentials = params.draft.basicCredentials
+      const nextSyncEnabled = params.draft.syncEnabled
+      const nextUploadEnabled = params.draft.uploadEnabled
+      const nextDraft = {
+        baseUrl: nextBaseUrl,
+        authMode: nextAuthMode,
+        basicCredentials: nextBasicCredentials,
+        syncEnabled: nextSyncEnabled,
+        uploadEnabled: nextUploadEnabled,
+      }
       const nextScope = buildConnectionScope({
         baseUrl: nextBaseUrl,
         authMode: nextAuthMode,
@@ -148,40 +195,73 @@ function ConnectPage() {
       })
       clearAllMediaPreviews()
       setOverviewMemStats(null)
-      if (selectedProfile) {
-        const previousGeneratedName = createProfileName(
-          selectedProfile.baseUrl,
-          selectedProfile.authMode,
-          selectedProfile.basicCredentials.username,
-        )
-        const shouldRegenerateName = selectedProfile.name === previousGeneratedName
-        saveProfile({
-          id: selectedProfile.id,
-          name: shouldRegenerateName
-            ? createProfileName(nextBaseUrl, nextAuthMode, nextBasicCredentials.username)
-            : selectedProfile.name,
-          baseUrl: nextBaseUrl,
-          authMode: nextAuthMode,
-          basicCredentials: nextBasicCredentials,
-          syncEnabled: syncEnabledDraft,
-          uploadEnabled: uploadEnabledDraft,
+
+      const targetProfile = params.profileId === null
+        ? null
+        : profiles.find((profile) => profile.id === params.profileId) ?? null
+
+      if (targetProfile === null) {
+        const nextProfileId = saveProfile({
+          name: "",
+          baseUrl: nextDraft.baseUrl,
+          authMode: nextDraft.authMode,
+          basicCredentials: nextDraft.basicCredentials,
+          syncEnabled: nextDraft.syncEnabled,
+          uploadEnabled: nextDraft.uploadEnabled,
         })
+
+        setSelectedProfileId(nextProfileId)
+        setCurrentDraft(nextDraft)
+        setActiveProfile(nextProfileId)
+      } else {
+        saveProfile({
+          id: targetProfile.id,
+          name: resolveSavedProfileName(targetProfile, nextDraft),
+          baseUrl: nextDraft.baseUrl,
+          authMode: nextDraft.authMode,
+          basicCredentials: nextDraft.basicCredentials,
+          syncEnabled: nextDraft.syncEnabled,
+          uploadEnabled: nextDraft.uploadEnabled,
+        })
+
+        setCurrentDraft(nextDraft)
+        setSelectedProfileId(targetProfile.id)
+        setActiveProfile(targetProfile.id)
       }
-      applyConnection({
-        baseUrl: nextBaseUrl,
-        authMode: nextAuthMode,
-        basicCredentials: nextBasicCredentials,
-      })
+
+      applyConnection(nextDraft)
       markValidated(result.serverInfo)
+      notify({
+        color: "green",
+        title: messages.connect.connectionSaved(),
+        message: messages.connect.connectionSavedMessage(),
+      })
     },
     onError: (error) => {
       void error
     },
   })
+  const isValidationPending = validateConnection.isPending
+
+  useEffect(() => {
+    if (hasAutoConnectedRef.current || lastValidatedAt || lastServerInfo || !initialAutoConnectTarget) {
+      return
+    }
+
+    hasAutoConnectedRef.current = true
+    validateConnection.mutate(initialAutoConnectTarget)
+  }, [initialAutoConnectTarget, lastServerInfo, lastValidatedAt, validateConnection])
 
   const handleApplySavedConnection = (profileId: string) => {
+    if (isValidationPending) {
+      return
+    }
+
     if (!profileId) {
-      selectProfile(null)
+      validateConnection.reset()
+      setSelectedProfileId(null)
+      setCurrentDraft(runtimeDraft)
+      setActiveProfile(null)
       return
     }
 
@@ -190,59 +270,51 @@ function ConnectPage() {
       return
     }
 
-    selectProfile(profile.id)
-    applyConnection({
-      baseUrl: profile.baseUrl,
-      authMode: profile.authMode,
-      basicCredentials: profile.basicCredentials,
-    })
-
+    validateConnection.reset()
+    const profileDraft = toDraftFromProfile(profile)
+    setSelectedProfileId(profile.id)
+    setCurrentDraft(profileDraft)
+    setActiveProfile(profile.id)
     validateConnection.mutate({
-      baseUrl: profile.baseUrl,
-      authMode: profile.authMode,
-      basicCredentials: profile.basicCredentials,
+      draft: profileDraft,
+      profileId: profile.id,
     })
   }
 
   const handleSaveCurrent = () => {
-    const isChangingExisting =
-      selectedProfile?.id &&
-      selectedProfile.baseUrl === baseUrl &&
-      selectedProfile.authMode === authMode &&
-      (
-        authMode !== "basic" ||
-        selectedProfile.basicCredentials.username === basicCredentials.username
-      )
+    if (isValidationPending) {
+      return
+    }
 
-    const name = isChangingExisting ? selectedProfile.name : ""
-
-    saveProfile({
-      id: isChangingExisting ? selectedProfile.id : undefined,
-      name,
-      baseUrl,
-      authMode,
-      basicCredentials,
-      syncEnabled: syncEnabledDraft,
-      uploadEnabled: uploadEnabledDraft,
-    })
-
-    notify({
-      color: "green",
-      title: messages.connect.connectionSaved(),
-      message: messages.connect.connectionSavedMessage(),
+    validateConnection.mutate({
+      draft: currentDraft,
+      profileId: selectedProfileId,
     })
   }
 
   const handleDeleteSelected = () => {
-    if (!selectedProfile) {
+    if (isValidationPending) {
       return
     }
 
-    deleteProfile(selectedProfile.id)
+    if (selectedProfileId === null || !currentProfile) {
+      return
+    }
+
+    const deletedProfileId = currentProfile.id
+    const deletedDraft = currentDraft
+
+    deleteProfile(deletedProfileId)
+    if (activeProfileId === deletedProfileId) {
+      setActiveProfile(null)
+    }
+    setCurrentDraft(deletedDraft)
+    setSelectedProfileId(null)
+    validateConnection.reset()
     notify({
       color: "green",
       title: messages.connect.savedConnectionRemoved(),
-      message: messages.connect.savedConnectionRemovedMessage(selectedProfile.name),
+      message: messages.connect.savedConnectionRemovedMessage(currentProfile.name),
     })
   }
 
@@ -259,6 +331,7 @@ function ConnectPage() {
                   <span className="app-field-label">{messages.connect.savedConnections()}</span>
                   <NativeSelect
                     value={selectedProfileId ?? ""}
+                    disabled={isValidationPending}
                     onChange={(event) => handleApplySavedConnection(event.currentTarget.value)}
                   >
                     <option value="">{messages.connect.currentUnsavedConnection()}</option>
@@ -269,7 +342,13 @@ function ConnectPage() {
                     ))}
                   </NativeSelect>
                 </label>
-                <Button type="button" variant="secondary" className="gap-1.5" onClick={handleSaveCurrent}>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="gap-1.5"
+                  onClick={handleSaveCurrent}
+                  disabled={isValidationPending}
+                >
                   <Save className="h-3.5 w-3.5" />
                   {messages.connect.saveCurrent()}
                 </Button>
@@ -277,8 +356,9 @@ function ConnectPage() {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className={cn("shrink-0", !selectedProfile && "pointer-events-none opacity-40")}
+                  className={cn("shrink-0", selectedProfileId === null && "pointer-events-none opacity-40")}
                   onClick={handleDeleteSelected}
+                  disabled={isValidationPending}
                   aria-label={messages.connect.deleteSavedConnection()}
                 >
                   <Trash2 className="h-4 w-4" />
@@ -289,8 +369,15 @@ function ConnectPage() {
                 <span className="app-field-label">{messages.connect.baseUrl()}</span>
                 <Input
                   placeholder={resolveInputExample(inputExamples.rcBaseUrl, locale)}
-                  value={baseUrl}
-                  onChange={(event) => setBaseUrl(event.currentTarget.value)}
+                  value={currentDraft.baseUrl}
+                  disabled={isValidationPending}
+                  onChange={(event) => {
+                    const nextValue = event.currentTarget.value
+                    updateCurrentDraft((draft) => ({
+                      ...draft,
+                      baseUrl: nextValue,
+                    }))
+                  }}
                 />
                 <span className="app-help-text">{messages.connect.baseUrlDescription()}</span>
               </label>
@@ -298,11 +385,15 @@ function ConnectPage() {
               <label className="flex flex-col gap-2">
                 <span className="app-field-label">{messages.connect.authMode()}</span>
                 <NativeSelect
-                  value={authMode}
+                  value={currentDraft.authMode}
+                  disabled={isValidationPending}
                   onChange={(event) => {
                     const value = event.currentTarget.value
                     if (value === "basic" || value === "none") {
-                      setAuthMode(value)
+                      updateCurrentDraft((draft) => ({
+                        ...draft,
+                        authMode: value,
+                      }))
                     }
                   }}
                 >
@@ -312,31 +403,41 @@ function ConnectPage() {
                 <span className="app-help-text">{messages.connect.authModeDescription()}</span>
               </label>
 
-              {authMode === "basic" ? (
+              {currentDraft.authMode === "basic" ? (
                 <>
                   <label className="flex flex-col gap-2">
                     <span className="app-field-label">{messages.connect.username()}</span>
                     <Input
-                      value={basicCredentials.username}
-                      onChange={(event) =>
-                        setBasicCredentials({
-                          ...basicCredentials,
-                          username: event.currentTarget.value,
-                        })
-                      }
+                      value={currentDraft.basicCredentials.username}
+                      disabled={isValidationPending}
+                      onChange={(event) => {
+                        const nextValue = event.currentTarget.value
+                        updateCurrentDraft((draft) => ({
+                          ...draft,
+                          basicCredentials: {
+                            ...draft.basicCredentials,
+                            username: nextValue,
+                          },
+                        }))
+                      }}
                     />
                   </label>
                   <label className="flex flex-col gap-2">
                     <span className="app-field-label">{messages.connect.password()}</span>
                     <Input
                       type="password"
-                      value={basicCredentials.password}
-                      onChange={(event) =>
-                        setBasicCredentials({
-                          ...basicCredentials,
-                          password: event.currentTarget.value,
-                        })
-                      }
+                      value={currentDraft.basicCredentials.password}
+                      disabled={isValidationPending}
+                      onChange={(event) => {
+                        const nextValue = event.currentTarget.value
+                        updateCurrentDraft((draft) => ({
+                          ...draft,
+                          basicCredentials: {
+                            ...draft.basicCredentials,
+                            password: nextValue,
+                          },
+                        }))
+                      }}
                     />
                   </label>
                 </>
@@ -345,10 +446,11 @@ function ConnectPage() {
               <label className="flex items-start gap-3 rounded-[12px] border border-[color:var(--app-border)] bg-[color:var(--app-panel-strong)] px-3 py-3">
                 <Checkbox
                   aria-label={messages.connect.syncEnabled()}
-                  checked={syncEnabledDraft}
+                  checked={currentDraft.syncEnabled}
+                  disabled={isValidationPending}
                   onChange={async (event) => {
                     const nextChecked = event.currentTarget.checked
-                    if (nextChecked && !syncEnabledDraft) {
+                    if (nextChecked && !currentDraft.syncEnabled) {
                       const confirmed = await confirm({
                         title: messages.connect.syncRiskTitle(),
                         message: messages.connect.syncRiskMessage(),
@@ -360,10 +462,10 @@ function ConnectPage() {
                       }
                     }
 
-                    setSyncEnabledDraftState({
-                      profileId: selectedProfile?.id ?? null,
-                      value: nextChecked,
-                    })
+                    updateCurrentDraft((draft) => ({
+                      ...draft,
+                      syncEnabled: nextChecked,
+                    }))
                   }}
                 />
                 <span className="flex min-w-0 flex-col gap-1">
@@ -375,10 +477,11 @@ function ConnectPage() {
               <label className="flex items-start gap-3 rounded-[12px] border border-[color:var(--app-border)] bg-[color:var(--app-panel-strong)] px-3 py-3">
                 <Checkbox
                   aria-label={messages.connect.uploadEnabled()}
-                  checked={uploadEnabledDraft}
+                  checked={currentDraft.uploadEnabled}
+                  disabled={isValidationPending}
                   onChange={async (event) => {
                     const nextChecked = event.currentTarget.checked
-                    if (nextChecked && !uploadEnabledDraft) {
+                    if (nextChecked && !currentDraft.uploadEnabled) {
                       const confirmed = await confirm({
                         title: messages.connect.uploadRiskTitle(),
                         message: messages.connect.uploadRiskMessage(),
@@ -390,10 +493,10 @@ function ConnectPage() {
                       }
                     }
 
-                    setUploadEnabledDraftState({
-                      profileId: selectedProfile?.id ?? null,
-                      value: nextChecked,
-                    })
+                    updateCurrentDraft((draft) => ({
+                      ...draft,
+                      uploadEnabled: nextChecked,
+                    }))
                   }}
                 />
                 <span className="flex min-w-0 flex-col gap-1">
@@ -402,12 +505,6 @@ function ConnectPage() {
                 </span>
               </label>
 
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                <Button disabled={validateConnection.isPending} onClick={() => validateConnection.mutate(undefined)}>
-                  {validateConnection.isPending ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : null}
-                  {messages.connect.validateConnection()}
-                </Button>
-              </div>
               {validateConnection.data ? (
                 <Alert variant="success">
                   <AlertTitle>{messages.connect.connectionReady()}</AlertTitle>

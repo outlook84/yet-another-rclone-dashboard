@@ -24,7 +24,7 @@ describe("useSavedConnectionsStore", () => {
     })
 
     const state = useSavedConnectionsStore.getState()
-    expect(state.selectedProfileId).toBe(profileId)
+    expect(state.activeProfileId).toBe(profileId)
     expect(state.profiles[0]).toMatchObject({
       id: profileId,
       name: "demo.example.com/rc (alice)",
@@ -76,6 +76,54 @@ describe("useSavedConnectionsStore", () => {
     useSavedConnectionsStore.getState().deleteProfile(profileId)
 
     expect(useSavedConnectionsStore.getState().profiles).toEqual([])
-    expect(useSavedConnectionsStore.getState().selectedProfileId).toBeNull()
+    expect(useSavedConnectionsStore.getState().activeProfileId).toBeNull()
+  })
+
+  it("preserves action methods when hydrating saved profiles", async () => {
+    window.localStorage.setItem(
+      "yard-saved-connections",
+      JSON.stringify({
+        state: {
+          selectedProfileId: "profile-1",
+          profiles: [
+            {
+              id: "profile-1",
+              name: "Local",
+              baseUrl: "http://localhost:5572",
+              authMode: "none",
+              basicCredentials: {
+                username: "",
+                password: "",
+              },
+              syncEnabled: false,
+              uploadEnabled: true,
+              updatedAt: "2026-03-29T00:00:00.000Z",
+            },
+          ],
+        },
+        version: 0,
+      }),
+    )
+
+    const { useSavedConnectionsStore } = await import("@/features/auth/store/saved-connections-store")
+
+    expect(typeof useSavedConnectionsStore.getState().saveProfile).toBe("function")
+    expect(typeof useSavedConnectionsStore.getState().setActiveProfile).toBe("function")
+    expect(typeof useSavedConnectionsStore.getState().deleteProfile).toBe("function")
+    expect(useSavedConnectionsStore.getState()).toMatchObject({
+      activeProfileId: "profile-1",
+      profiles: [
+        {
+          id: "profile-1",
+          uploadEnabled: true,
+        },
+      ],
+    })
+
+    useSavedConnectionsStore.getState().setActiveProfile(null)
+    useSavedConnectionsStore.getState().deleteProfile("profile-1")
+
+    expect(useSavedConnectionsStore.getState().activeProfileId).toBeNull()
+    expect(useSavedConnectionsStore.getState().profiles).toEqual([])
   })
 })

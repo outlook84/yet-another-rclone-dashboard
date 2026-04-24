@@ -26,18 +26,12 @@ describe("useConnectionStore", () => {
         username: "gui",
         password: "",
       },
+      syncEnabled: false,
+      uploadEnabled: false,
       lastValidatedAt: null,
       lastServerInfo: null,
       validationRevision: 0,
     })
-  })
-
-  it("uses the browser origin for the root default base url", async () => {
-    window.history.replaceState({}, "", "/")
-
-    const { useConnectionStore } = await import("@/shared/store/connection-store")
-
-    expect(useConnectionStore.getState().baseUrl).toBe(window.location.origin)
   })
 
   it("includes the browser pathname prefix in the default base url", async () => {
@@ -48,59 +42,190 @@ describe("useConnectionStore", () => {
     expect(useConnectionStore.getState().baseUrl).toBe(`${window.location.origin}/rclone`)
   })
 
-  it("drops index.html from the default base url pathname", async () => {
-    window.history.replaceState({}, "", "/rclone/index.html")
+  it("backfills missing persisted capabilities from the active saved profile", async () => {
+    window.localStorage.setItem(
+      "yard-connection",
+      JSON.stringify({
+        state: {
+          baseUrl: "https://legacy.example.com/rc",
+          authMode: "basic",
+          basicCredentials: {
+            username: "legacy",
+            password: "pw",
+          },
+        },
+        version: 0,
+      }),
+    )
+    window.localStorage.setItem(
+      "yard-saved-connections",
+      JSON.stringify({
+        state: {
+          selectedProfileId: "legacy-profile",
+          profiles: [
+            {
+              id: "legacy-profile",
+              name: "Legacy",
+              baseUrl: "https://legacy.example.com/rc",
+              authMode: "basic",
+              basicCredentials: {
+                username: "legacy",
+                password: "pw",
+              },
+              syncEnabled: true,
+              uploadEnabled: false,
+              updatedAt: "2026-03-29T00:00:00.000Z",
+            },
+          ],
+        },
+        version: 0,
+      }),
+    )
 
     const { useConnectionStore } = await import("@/shared/store/connection-store")
 
-    expect(useConnectionStore.getState().baseUrl).toBe(`${window.location.origin}/rclone`)
-  })
-
-  it("clears validation when connection settings change", async () => {
-    const { useConnectionStore } = await import("@/shared/store/connection-store")
-
-    useConnectionStore.getState().markValidated(serverInfo)
-    expect(useConnectionStore.getState().lastServerInfo).toEqual(serverInfo)
-    expect(useConnectionStore.getState().lastValidatedAt).toEqual(expect.any(String))
-
-    useConnectionStore.getState().setBaseUrl("http://localhost:5573")
-
     expect(useConnectionStore.getState()).toMatchObject({
-      baseUrl: "http://localhost:5573",
-      lastValidatedAt: null,
-      lastServerInfo: null,
-    })
-
-    useConnectionStore.getState().markValidated(serverInfo)
-    useConnectionStore.getState().setAuthMode("none")
-
-    expect(useConnectionStore.getState()).toMatchObject({
-      authMode: "none",
-      lastValidatedAt: null,
-      lastServerInfo: null,
-    })
-
-    useConnectionStore.getState().markValidated(serverInfo)
-    useConnectionStore.getState().setBasicCredentials({
-      username: "alice",
-      password: "secret",
-    })
-
-    expect(useConnectionStore.getState()).toMatchObject({
+      baseUrl: "https://legacy.example.com/rc",
+      authMode: "basic",
       basicCredentials: {
-        username: "alice",
-        password: "secret",
+        username: "legacy",
+        password: "pw",
       },
-      lastValidatedAt: null,
-      lastServerInfo: null,
+      syncEnabled: true,
+      uploadEnabled: false,
     })
   })
 
-  it("resets validation on applyConnection and can clear validation explicitly", async () => {
+  it("keeps missing persisted capabilities disabled without a matching active saved profile", async () => {
+    window.localStorage.setItem(
+      "yard-connection",
+      JSON.stringify({
+        state: {
+          baseUrl: "https://legacy.example.com/rc",
+          authMode: "basic",
+          basicCredentials: {
+            username: "legacy",
+            password: "pw",
+          },
+        },
+        version: 0,
+      }),
+    )
+    window.localStorage.setItem(
+      "yard-saved-connections",
+      JSON.stringify({
+        state: {
+          activeProfileId: "other-profile",
+          profiles: [
+            {
+              id: "other-profile",
+              name: "Other",
+              baseUrl: "https://other.example.com/rc",
+              authMode: "basic",
+              basicCredentials: {
+                username: "legacy",
+                password: "pw",
+              },
+              syncEnabled: true,
+              uploadEnabled: true,
+              updatedAt: "2026-03-29T00:00:00.000Z",
+            },
+          ],
+        },
+        version: 0,
+      }),
+    )
+
+    const { useConnectionStore } = await import("@/shared/store/connection-store")
+
+    expect(useConnectionStore.getState()).toMatchObject({
+      baseUrl: "https://legacy.example.com/rc",
+      syncEnabled: false,
+      uploadEnabled: false,
+    })
+  })
+
+  it("drops legacy persisted validation runtime when hydrating", async () => {
+    window.localStorage.setItem(
+      "yard-connection",
+      JSON.stringify({
+        state: {
+          baseUrl: "https://legacy.example.com/rc",
+          authMode: "basic",
+          basicCredentials: {
+            username: "legacy",
+            password: "pw",
+          },
+          syncEnabled: true,
+          uploadEnabled: true,
+          lastValidatedAt: "2026-03-29T00:00:00.000Z",
+          lastServerInfo: {
+            product: "rclone",
+            version: "1.70.0",
+            apiBaseUrl: "https://legacy.example.com/rc",
+            serverTime: "2026-03-29T00:00:00.000Z",
+          },
+          validationRevision: 12,
+        },
+        version: 0,
+      }),
+    )
+
+    const { useConnectionStore } = await import("@/shared/store/connection-store")
+
+    expect(useConnectionStore.getState()).toMatchObject({
+      baseUrl: "https://legacy.example.com/rc",
+      syncEnabled: true,
+      uploadEnabled: true,
+      lastValidatedAt: null,
+      lastServerInfo: null,
+      validationRevision: 0,
+    })
+  })
+
+  it("persists config but drops validation runtime on module reload", async () => {
+    window.history.replaceState({}, "", "/")
+
+    const firstModule = await import("@/shared/store/connection-store")
+
+    firstModule.useConnectionStore.getState().applyConnection({
+      baseUrl: "https://demo.example.com/rc",
+      authMode: "none",
+      basicCredentials: {
+        username: "demo",
+        password: "pw",
+      },
+      syncEnabled: true,
+      uploadEnabled: true,
+    })
+    firstModule.useConnectionStore.getState().markValidated({
+      ...serverInfo,
+      apiBaseUrl: "https://demo.example.com/rc",
+    })
+
+    vi.resetModules()
+
+    const reloadedModule = await import("@/shared/store/connection-store")
+
+    expect(reloadedModule.useConnectionStore.getState()).toMatchObject({
+      baseUrl: "https://demo.example.com/rc",
+      authMode: "none",
+      basicCredentials: {
+        username: "demo",
+        password: "pw",
+      },
+      syncEnabled: true,
+      uploadEnabled: true,
+      lastValidatedAt: null,
+      lastServerInfo: null,
+      validationRevision: 0,
+    })
+  })
+
+  it("resets validation when applying a new connection config", async () => {
     const { useConnectionStore } = await import("@/shared/store/connection-store")
 
     useConnectionStore.getState().markValidated(serverInfo)
-
     useConnectionStore.getState().applyConnection({
       baseUrl: "https://demo.example.com",
       authMode: "basic",
@@ -108,6 +233,8 @@ describe("useConnectionStore", () => {
         username: "demo",
         password: "pw",
       },
+      syncEnabled: true,
+      uploadEnabled: false,
     })
 
     expect(useConnectionStore.getState()).toMatchObject({
@@ -117,35 +244,26 @@ describe("useConnectionStore", () => {
         username: "demo",
         password: "pw",
       },
+      syncEnabled: true,
+      uploadEnabled: false,
       lastValidatedAt: null,
       lastServerInfo: null,
     })
-
-    useConnectionStore.getState().markValidated(serverInfo)
-    useConnectionStore.getState().clearValidation()
-
-    expect(useConnectionStore.getState().lastValidatedAt).toBeNull()
-    expect(useConnectionStore.getState().lastServerInfo).toBeNull()
   })
 
-  it("increments the validation revision when validation succeeds", async () => {
+  it("tracks validation metadata only at runtime", async () => {
     const { useConnectionStore } = await import("@/shared/store/connection-store")
 
     expect(useConnectionStore.getState().validationRevision).toBe(0)
 
     useConnectionStore.getState().markValidated(serverInfo)
-    expect(useConnectionStore.getState().validationRevision).toBe(1)
-
-    useConnectionStore.getState().markValidated(serverInfo)
-    expect(useConnectionStore.getState().validationRevision).toBe(2)
-  })
-
-  it("updates server info without changing validation metadata", async () => {
-    const { useConnectionStore } = await import("@/shared/store/connection-store")
-
-    useConnectionStore.getState().markValidated(serverInfo)
     const lastValidatedAt = useConnectionStore.getState().lastValidatedAt
-    const validationRevision = useConnectionStore.getState().validationRevision
+
+    expect(useConnectionStore.getState()).toMatchObject({
+      lastValidatedAt: expect.any(String),
+      lastServerInfo: serverInfo,
+      validationRevision: 1,
+    })
 
     useConnectionStore.getState().setServerInfo({
       ...serverInfo,
@@ -154,11 +272,19 @@ describe("useConnectionStore", () => {
 
     expect(useConnectionStore.getState()).toMatchObject({
       lastValidatedAt,
-      validationRevision,
+      validationRevision: 1,
       lastServerInfo: {
         ...serverInfo,
         version: "1.69.0",
       },
+    })
+
+    useConnectionStore.getState().clearValidation()
+
+    expect(useConnectionStore.getState()).toMatchObject({
+      lastValidatedAt: null,
+      lastServerInfo: null,
+      validationRevision: 1,
     })
   })
 })

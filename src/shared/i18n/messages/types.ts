@@ -88,7 +88,6 @@ type AppMessages = {
     authModeDescription: () => string
     username: () => string
     password: () => string
-    validateConnection: () => string
     connectionSaved: () => string
     connectionSavedMessage: () => string
     savedConnectionRemoved: () => string
