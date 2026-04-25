@@ -30,7 +30,7 @@ import {
 } from "@/features/auth/lib/connection-draft"
 import { validateConnectionAndDetectAuthMode } from "@/features/auth/lib/validate-connection"
 import { buildConnectionScope, useConnectionScope } from "@/shared/hooks/use-connection-scope"
-import { useConnectionStore } from "@/shared/store/connection-store"
+import { getDefaultBaseUrl, useConnectionStore } from "@/shared/store/connection-store"
 
 function resolveSavedProfileName(profile: SavedConnectionProfile, draft: ConnectionDraft) {
   const previousGeneratedName = createProfileName(
@@ -291,7 +291,7 @@ function ConnectPage() {
                 <Button
                   type="button"
                   variant="secondary"
-                  className="gap-1.5"
+                  className="h-11 gap-1.5"
                   onClick={handleSaveCurrent}
                   disabled={isValidationPending}
                 >
@@ -302,7 +302,7 @@ function ConnectPage() {
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className={cn("shrink-0", selectedProfileId === null && "pointer-events-none opacity-40")}
+                  className={cn("h-11 w-11 shrink-0", selectedProfileId === null && "pointer-events-none opacity-40")}
                   onClick={handleDeleteSelected}
                   disabled={isValidationPending}
                   aria-label={messages.connect.deleteSavedConnection()}
@@ -313,18 +313,35 @@ function ConnectPage() {
 
               <label className="flex flex-col gap-2">
                 <span className="app-field-label">{messages.connect.baseUrl()}</span>
-                <Input
-                  placeholder={resolveInputExample(inputExamples.rcBaseUrl, locale)}
-                  value={currentDraft.baseUrl}
-                  disabled={isValidationPending}
-                  onChange={(event) => {
-                    const nextValue = event.currentTarget.value
-                    updateCurrentDraft((draft) => ({
-                      ...draft,
-                      baseUrl: nextValue,
-                    }))
-                  }}
-                />
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Input
+                    placeholder={resolveInputExample(inputExamples.rcBaseUrl, locale)}
+                    value={currentDraft.baseUrl}
+                    disabled={isValidationPending}
+                    onChange={(event) => {
+                      const nextValue = event.currentTarget.value
+                      updateCurrentDraft((draft) => ({
+                        ...draft,
+                        baseUrl: nextValue,
+                      }))
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="h-11 shrink-0 self-start"
+                    onClick={() => {
+                      const nextValue = getDefaultBaseUrl()
+                      updateCurrentDraft((draft) => ({
+                        ...draft,
+                        baseUrl: nextValue,
+                      }))
+                    }}
+                    disabled={isValidationPending}
+                  >
+                    {messages.connect.useCurrentUrl()}
+                  </Button>
+                </div>
                 <span className="app-help-text">{messages.connect.baseUrlDescription()}</span>
               </label>
 
@@ -479,3 +496,4 @@ function ConnectPage() {
 }
 
 export { ConnectPage }
+

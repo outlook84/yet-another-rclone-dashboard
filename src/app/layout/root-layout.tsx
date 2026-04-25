@@ -426,6 +426,7 @@ function RootLayout() {
       : connectionHealthQuery.isPending
         ? messages.connection.checking()
         : messages.connection.connected()
+  const showConnectionBadge = isValidated || location.pathname !== "/"
   const isStatsRefreshing = activeStatsFetches > 0
   const showStatsRefreshSpinner = useHeldSpinner(isStatsRefreshing, 650)
 
@@ -680,18 +681,20 @@ function RootLayout() {
                 </select>
               </div>
             ) : null}
-            <Badge
-              variant={
-                !isValidated
-                  ? "warning"
-                  : consecutiveFailures > 0 || connectionHealthQuery.isPending
+            {showConnectionBadge ? (
+              <Badge
+                variant={
+                  !isValidated
                     ? "warning"
-                    : "success"
-              }
-              className="inline-flex h-7 shrink-0 items-center px-3 text-xs font-medium leading-none"
-            >
-              {connectionBadgeLabel}
-            </Badge>
+                    : consecutiveFailures > 0 || connectionHealthQuery.isPending
+                      ? "warning"
+                      : "success"
+                }
+                className="inline-flex h-7 shrink-0 items-center px-3 text-xs font-medium leading-none"
+              >
+                {connectionBadgeLabel}
+              </Badge>
+            ) : null}
           </div>
         </div>
       </header>

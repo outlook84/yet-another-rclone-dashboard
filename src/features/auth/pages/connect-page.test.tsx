@@ -173,6 +173,16 @@ describe("ConnectPage", () => {
     expect(serverInfoMock).not.toHaveBeenCalled()
   })
 
+  it("fills the base URL from the current dashboard URL", () => {
+    window.history.replaceState({}, "", "/dashboard/index.html#/connect")
+
+    renderWithProviders(<ConnectPage />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Use current URL" }))
+
+    expect(screen.getByDisplayValue("http://localhost:3000/dashboard")).not.toBeNull()
+  })
+
   it("saves and connects the selected profile after validation", async () => {
     useSavedConnectionsStore.setState({
       profiles: [

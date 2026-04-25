@@ -81,6 +81,7 @@ type AppMessages = {
     saveCurrent: () => string
     deleteSavedConnection: () => string
     baseUrl: () => string
+    useCurrentUrl: () => string
     baseUrlDescription: () => string
     authMode: () => string
     authBasic: () => string

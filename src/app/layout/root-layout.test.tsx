@@ -167,6 +167,25 @@ describe("RootLayout", () => {
     })
   })
 
+  it("hides the connection badge on connect when the current session is not validated", () => {
+    useConnectionStore.setState({
+      lastValidatedAt: null,
+      lastServerInfo: null,
+    })
+
+    renderRootLayout(["/"])
+
+    expect(screen.getByText("Connect Screen")).not.toBeNull()
+    expect(screen.queryByText("Not Verified")).toBeNull()
+  })
+
+  it("shows the connection badge on connect after validation", () => {
+    renderRootLayout([{ pathname: "/", state: { manualConnect: true } }])
+
+    expect(screen.getByText("Connect Screen")).not.toBeNull()
+    expect(screen.getByText("Connected")).not.toBeNull()
+  })
+
   it("reconnects the active saved profile before showing a protected route", async () => {
     useConnectionStore.setState({
       lastValidatedAt: null,
