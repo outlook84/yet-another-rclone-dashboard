@@ -33,6 +33,7 @@ describe("ConnectPage", () => {
   })
 
   beforeEach(() => {
+    createClientMock.mockReset()
     removeQueriesMock.mockReset()
     useConnectionStore.setState({
       baseUrl: "http://localhost:5572",
@@ -77,23 +78,14 @@ describe("ConnectPage", () => {
       version: "1.70.0",
       apiBaseUrl: "http://localhost:5572",
     })
-    createClientMock.mockImplementation(({ authMode }: { authMode: string }) => {
-      if (authMode === "none") {
-        return {
-          session: {
-            ping: vi.fn().mockRejectedValue(new UnknownApiError("auth required", { code: "api_error", status: 401 })),
-            getServerInfo: vi.fn(),
-          },
-        }
-      }
-
-      return {
-        session: {
-          ping: pingMock,
-          getServerInfo: serverInfoMock,
-        },
-      }
-    })
+    createClientMock.mockImplementation(({ authMode }: { authMode: string }) => ({
+      session: {
+        ping: authMode === "none"
+          ? vi.fn().mockRejectedValue(new UnknownApiError("auth required", { code: "api_error", status: 401 }))
+          : pingMock,
+        getServerInfo: authMode === "none" ? vi.fn() : serverInfoMock,
+      },
+    }))
 
     renderWithProviders(<ConnectPage />)
 
@@ -131,21 +123,16 @@ describe("ConnectPage", () => {
     expect(useExplorerUIStore.getState().actionsByScope["http://localhost:5572::basic::gui"]?.mediaPreview).toBeNull()
   })
 
-  it("initializes and reconnects from the active saved profile", async () => {
-    const pingMock = vi.fn().mockResolvedValue({
-      latencyMs: 16,
-    })
-    const serverInfoMock = vi.fn().mockResolvedValue({
-      product: "rclone",
-      version: "1.70.0",
-      apiBaseUrl: "https://demo.example.com/rc",
-    })
-    createClientMock.mockImplementation(() => ({
+  it("initializes the selected draft from the active saved profile", async () => {
+    const pingMock = vi.fn()
+    const serverInfoMock = vi.fn()
+    createClientMock.mockReturnValue({
       session: {
         ping: pingMock,
         getServerInfo: serverInfoMock,
       },
-    }))
+    })
+
     useConnectionStore.setState({
       baseUrl: "https://demo.example.com/rc",
       authMode: "basic",
@@ -182,20 +169,8 @@ describe("ConnectPage", () => {
     })
     expect(screen.getByDisplayValue("https://demo.example.com/rc")).not.toBeNull()
     expect((screen.getByRole("checkbox", { name: "Enable Sync" }) as HTMLInputElement).checked).toBe(true)
-    await waitFor(() => {
-      expect(screen.getByText("Connection Ready")).not.toBeNull()
-    })
-    expect(useConnectionStore.getState()).toMatchObject({
-      baseUrl: "https://demo.example.com/rc",
-      authMode: "none",
-      basicCredentials: {
-        username: "demo",
-        password: "pw",
-      },
-      syncEnabled: true,
-      uploadEnabled: false,
-      lastValidatedAt: expect.any(String),
-    })
+    expect(pingMock).not.toHaveBeenCalled()
+    expect(serverInfoMock).not.toHaveBeenCalled()
   })
 
   it("saves and connects the selected profile after validation", async () => {
@@ -218,16 +193,20 @@ describe("ConnectPage", () => {
       activeProfileId: "profile-1",
     })
 
-    createClientMock.mockImplementation(() => ({
+    createClientMock.mockImplementation(({ authMode }: { authMode: string }) => ({
       session: {
-        ping: vi.fn().mockResolvedValue({
-          latencyMs: 8,
-        }),
-        getServerInfo: vi.fn().mockResolvedValue({
-          product: "rclone",
-          version: "1.70.0",
-          apiBaseUrl: "http://localhost:5572",
-        }),
+        ping: authMode === "none"
+          ? vi.fn().mockRejectedValue(new UnknownApiError("auth required", { code: "api_error", status: 401 }))
+          : vi.fn().mockResolvedValue({
+              latencyMs: 8,
+            }),
+        getServerInfo: authMode === "none"
+          ? vi.fn()
+          : vi.fn().mockResolvedValue({
+              product: "rclone",
+              version: "1.70.0",
+              apiBaseUrl: "http://localhost:5572",
+            }),
       },
     }))
 
@@ -254,7 +233,7 @@ describe("ConnectPage", () => {
     })
     expect(useConnectionStore.getState()).toMatchObject({
       baseUrl: "http://localhost:5573",
-      authMode: "none",
+      authMode: "basic",
       syncEnabled: true,
       uploadEnabled: false,
       lastValidatedAt: expect.any(String),
@@ -281,16 +260,20 @@ describe("ConnectPage", () => {
       activeProfileId: "profile-1",
     })
 
-    createClientMock.mockImplementation(() => ({
+    createClientMock.mockImplementation(({ authMode }: { authMode: string }) => ({
       session: {
-        ping: vi.fn().mockResolvedValue({
-          latencyMs: 8,
-        }),
-        getServerInfo: vi.fn().mockResolvedValue({
-          product: "rclone",
-          version: "1.70.0",
-          apiBaseUrl: "http://localhost:5572",
-        }),
+        ping: authMode === "none"
+          ? vi.fn().mockRejectedValue(new UnknownApiError("auth required", { code: "api_error", status: 401 }))
+          : vi.fn().mockResolvedValue({
+              latencyMs: 8,
+            }),
+        getServerInfo: authMode === "none"
+          ? vi.fn()
+          : vi.fn().mockResolvedValue({
+              product: "rclone",
+              version: "1.70.0",
+              apiBaseUrl: "http://localhost:5572",
+            }),
       },
     }))
 
@@ -582,16 +565,20 @@ describe("ConnectPage", () => {
       expect((screen.getByRole("checkbox", { name: "Enable Sync" }) as HTMLInputElement).checked).toBe(true)
     })
 
-    createClientMock.mockImplementation(() => ({
+    createClientMock.mockImplementation(({ authMode }: { authMode: string }) => ({
       session: {
-        ping: vi.fn().mockResolvedValue({
-          latencyMs: 12,
-        }),
-        getServerInfo: vi.fn().mockResolvedValue({
-          product: "rclone",
-          version: "1.70.0",
-          apiBaseUrl: "http://localhost:5572",
-        }),
+        ping: authMode === "none"
+          ? vi.fn().mockRejectedValue(new UnknownApiError("auth required", { code: "api_error", status: 401 }))
+          : vi.fn().mockResolvedValue({
+              latencyMs: 12,
+            }),
+        getServerInfo: authMode === "none"
+          ? vi.fn()
+          : vi.fn().mockResolvedValue({
+              product: "rclone",
+              version: "1.70.0",
+              apiBaseUrl: "http://localhost:5572",
+            }),
       },
     }))
 
@@ -606,7 +593,7 @@ describe("ConnectPage", () => {
     expect(useSavedConnectionsStore.getState().activeProfileId).toBe(useSavedConnectionsStore.getState().profiles[0]?.id)
     expect(useConnectionStore.getState()).toMatchObject({
       baseUrl: "http://localhost:5572",
-      authMode: "none",
+      authMode: "basic",
       syncEnabled: true,
       uploadEnabled: true,
       lastValidatedAt: expect.any(String),
@@ -622,31 +609,20 @@ describe("ConnectPage", () => {
       apiBaseUrl: string
     }) => void) | null = null
 
-    createClientMock.mockImplementation(({ authMode }: { authMode: string }) => {
-      if (authMode === "none") {
-        return {
-          session: {
-            ping: vi.fn().mockRejectedValue(new UnknownApiError("auth required", { code: "api_error", status: 401 })),
-            getServerInfo: vi.fn(),
-          },
-        }
-      }
-
-      return {
-        session: {
-          ping: vi.fn().mockImplementation(() => new Promise<{ latencyMs: number }>((resolve) => {
-            resolvePing = resolve
-          })),
-          getServerInfo: vi.fn().mockImplementation(() => new Promise<{
-            product: string
-            version: string
-            apiBaseUrl: string
-          }>((resolve) => {
-            resolveServerInfo = resolve
-          })),
-        },
-      }
-    })
+    createClientMock.mockImplementation(() => ({
+      session: {
+        ping: vi.fn().mockImplementation(() => new Promise<{ latencyMs: number }>((resolve) => {
+          resolvePing = resolve
+        })),
+        getServerInfo: vi.fn().mockImplementation(() => new Promise<{
+          product: string
+          version: string
+          apiBaseUrl: string
+        }>((resolve) => {
+          resolveServerInfo = resolve
+        })),
+      },
+    }))
 
     renderWithProviders(<ConnectPage />)
 
@@ -692,4 +668,38 @@ describe("ConnectPage", () => {
       expect(screen.getByText("rc endpoint unavailable")).not.toBeNull()
     })
   })
+
+  it("detects no-auth mode when saving a basic-auth draft", async () => {
+    createClientMock.mockImplementation(({ authMode }: { authMode: string }) => ({
+      session: {
+        ping: vi.fn().mockResolvedValue({
+          latencyMs: authMode === "none" ? 7 : 12,
+        }),
+        getServerInfo: vi.fn().mockResolvedValue({
+          product: "rclone",
+          version: "1.70.0",
+          apiBaseUrl: "http://localhost:5572",
+        }),
+      },
+    }))
+
+    renderWithProviders(<ConnectPage />)
+
+    fireEvent.click(screen.getByRole("button", { name: "Save & Connect" }))
+
+    await waitFor(() => {
+      expect(useConnectionStore.getState()).toMatchObject({
+        authMode: "none",
+        lastValidatedAt: expect.any(String),
+      })
+    })
+    expect(useSavedConnectionsStore.getState().profiles[0]).toMatchObject({
+      authMode: "none",
+    })
+    expect(createClientMock).toHaveBeenCalledWith(expect.objectContaining({
+      authMode: "none",
+    }))
+  })
 })
+
+

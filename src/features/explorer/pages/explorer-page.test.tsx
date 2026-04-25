@@ -165,6 +165,14 @@ describe("ExplorerPage", () => {
     explorerItems = defaultExplorerItems
     startManagedUploadMock.mockReset()
     setMatchMedia({})
+    useExplorerStore.setState({
+      scopeKey: null,
+      sessionsByScope: {},
+      tabs: [],
+      activeTabId: "",
+      currentRemote: "",
+      currentPath: "",
+    })
     useExplorerUIStore.setState({
       scopeKey: null,
       actionsByScope: {},
@@ -636,7 +644,7 @@ describe("ExplorerPage", () => {
     expect(screen.getByText(formatLocalizedCompactDateTime("2026-03-21T00:00:00Z", "en"))).not.toBeNull()
   })
 
-  it("does not show direct preview or download actions for basic-auth files", () => {
+  it("does not show direct preview or download actions when saved profile cannot use rc-serve", () => {
     renderWithProviders(<ExplorerPage />)
 
     const fileRow = screen.getByText("file.txt").closest('[role="row"]')
@@ -736,6 +744,24 @@ describe("ExplorerPage", () => {
         apiBaseUrl: "http://localhost:5572",
       },
     })
+    useSavedConnectionsStore.setState({
+      profiles: [
+        {
+          id: "demo-profile",
+          name: "Demo",
+          baseUrl: "http://localhost:5572",
+          authMode: "none",
+          basicCredentials: { username: "", password: "" },
+          updatedAt: "2026-03-27T10:00:00.000Z",
+          syncEnabled: true,
+          uploadEnabled: false,
+        },
+      ],
+      activeProfileId: "demo-profile",
+    })
+    useExplorerStore.getState().setScope("http://localhost:5572::none::anonymous")
+    useExplorerStore.getState().setLocation("demo", "folder")
+    useExplorerUIStore.getState().setScope("http://localhost:5572::none::anonymous")
     rcServeAvailabilityQueryMock.mockReturnValue({
       data: true,
       isLoading: false,
@@ -1381,7 +1407,8 @@ describe("ExplorerPage", () => {
     })
 
     scrollContainer.scrollTop = 240
-    fireEvent.click(screen.getByText("demo:folder"))
+    const folderTabs = screen.getAllByText("demo:folder")
+    fireEvent.click(folderTabs[0]!)
 
     await waitFor(() => {
       expect(scrollContainer.scrollTop).toBe(0)
@@ -1669,6 +1696,42 @@ describe("ExplorerPage", () => {
   })
 
   it("uses Escape for explorer UI before minimizing an open media preview", () => {
+    useConnectionStore.setState({
+      authMode: "none",
+      basicCredentials: {
+        username: "",
+        password: "",
+      },
+      lastServerInfo: {
+        product: "rclone",
+        version: "v1.72.0",
+        apiBaseUrl: "http://localhost:5572",
+      },
+    })
+    useSavedConnectionsStore.setState({
+      profiles: [
+        {
+          id: "demo-profile",
+          name: "Demo",
+          baseUrl: "http://localhost:5572",
+          authMode: "none",
+          basicCredentials: { username: "", password: "" },
+          updatedAt: "2026-03-27T10:00:00.000Z",
+          syncEnabled: true,
+          uploadEnabled: false,
+        },
+      ],
+      activeProfileId: "demo-profile",
+    })
+    useExplorerStore.getState().setScope("http://localhost:5572::none::anonymous")
+    useExplorerStore.getState().setLocation("demo", "folder")
+    useExplorerUIStore.getState().setScope("http://localhost:5572::none::anonymous")
+    rcServeAvailabilityQueryMock.mockReturnValue({
+      data: true,
+      isLoading: false,
+      isPending: false,
+      refetch: vi.fn(),
+    })
     useExplorerUIStore.getState().setMediaPreview({
       fileName: "clip.mp4",
       kind: "video",
@@ -1691,7 +1754,7 @@ describe("ExplorerPage", () => {
     fireEvent.keyDown(alphaRow, { key: "Escape" })
 
     expect(screen.queryByPlaceholderText("Filter by name")).toBeNull()
-    const scopeState = useExplorerUIStore.getState().actionsByScope["http://localhost:5572::basic::gui"]
+    const scopeState = useExplorerUIStore.getState().actionsByScope[useExplorerUIStore.getState().scopeKey!]
     expect(scopeState?.mediaPreview).not.toBeNull()
     expect(scopeState?.mediaPreviewMinimized).not.toBe(true)
   })

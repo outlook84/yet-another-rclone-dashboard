@@ -9,6 +9,7 @@ import {
 } from "react-router-dom"
 import { RootLayout } from "@/app/layout/root-layout"
 import { AppProviders } from "@/app/providers/app-providers"
+import { useSavedConnectionsStore } from "@/features/auth/store/saved-connections-store"
 import { useExplorerUIStore } from "@/features/explorer/store/explorer-ui-store"
 import { useConnectionStore } from "@/shared/store/connection-store"
 import { useLastVisitedRouteStore } from "@/shared/store/last-visited-route-store"
@@ -26,6 +27,14 @@ const { activeStatsFetchesMock } = vi.hoisted(() => ({
   activeStatsFetchesMock: {
     value: 0,
   },
+}))
+
+const { createClientMock } = vi.hoisted(() => ({
+  createClientMock: vi.fn(),
+}))
+
+vi.mock("@/shared/api/client/app-api-client", () => ({
+  createRcloneRcAppApiClient: (...args: unknown[]) => createClientMock(...args),
 }))
 
 vi.mock("@tanstack/react-query", async (importOriginal) => {
@@ -89,6 +98,21 @@ describe("RootLayout", () => {
     connectionHealthQueryMock.dataUpdatedAt = 0
     connectionHealthQueryMock.errorUpdatedAt = 0
     connectionHealthQueryMock.isPending = false
+    createClientMock.mockReset()
+    createClientMock.mockReturnValue({
+      jobs: {
+        getCombinedStats: vi.fn().mockResolvedValue({
+          stats: {},
+          mem: null,
+          transferred: [],
+          globalStats: {},
+        }),
+      },
+      session: {
+        ping: vi.fn(),
+        getServerInfo: vi.fn(),
+      },
+    })
     useConnectionStore.setState({
       baseUrl: "http://localhost:5572",
       authMode: "basic",
@@ -102,6 +126,10 @@ describe("RootLayout", () => {
         version: "1.70.0",
         apiBaseUrl: "http://localhost:5572",
       },
+    })
+    useSavedConnectionsStore.setState({
+      profiles: [],
+      activeProfileId: null,
     })
 
     useLastVisitedRouteStore.setState({
@@ -139,6 +167,115 @@ describe("RootLayout", () => {
     })
   })
 
+  it("reconnects the active saved profile before showing a protected route", async () => {
+    useConnectionStore.setState({
+      lastValidatedAt: null,
+      lastServerInfo: null,
+    })
+    useSavedConnectionsStore.setState({
+      profiles: [
+        {
+          id: "profile-1",
+          name: "Local",
+          baseUrl: "http://localhost:5572",
+          authMode: "basic",
+          basicCredentials: {
+            username: "gui",
+            password: "secret",
+          },
+          syncEnabled: true,
+          uploadEnabled: false,
+          updatedAt: "2026-03-29T00:00:00.000Z",
+        },
+      ],
+      activeProfileId: "profile-1",
+    })
+    createClientMock.mockImplementation(() => ({
+      session: {
+        ping: vi.fn().mockResolvedValue({
+          latencyMs: 12,
+        }),
+        getServerInfo: vi.fn().mockResolvedValue({
+          product: "rclone",
+          version: "1.70.0",
+          apiBaseUrl: "http://localhost:5572",
+        }),
+      },
+    }))
+
+    renderRootLayout(["/overview"])
+
+    expect(screen.getByText("Checking")).not.toBeNull()
+    await waitFor(() => {
+      expect(screen.getByText("Overview Screen")).not.toBeNull()
+    })
+    expect(screen.queryByText("Connect Screen")).toBeNull()
+    expect(useConnectionStore.getState()).toMatchObject({
+      authMode: "basic",
+      syncEnabled: true,
+      uploadEnabled: false,
+      lastValidatedAt: expect.any(String),
+    })
+  })
+
+  it("retries auto-reconnect for the same active profile after validation is cleared", async () => {
+    const pingMock = vi.fn().mockResolvedValue({
+      latencyMs: 12,
+    })
+    const serverInfoMock = vi.fn().mockResolvedValue({
+      product: "rclone",
+      version: "1.70.0",
+      apiBaseUrl: "http://localhost:5572",
+    })
+
+    useConnectionStore.setState({
+      lastValidatedAt: null,
+      lastServerInfo: null,
+    })
+    useSavedConnectionsStore.setState({
+      profiles: [
+        {
+          id: "profile-1",
+          name: "Local",
+          baseUrl: "http://localhost:5572",
+          authMode: "basic",
+          basicCredentials: {
+            username: "gui",
+            password: "secret",
+          },
+          syncEnabled: true,
+          uploadEnabled: false,
+          updatedAt: "2026-03-29T00:00:00.000Z",
+        },
+      ],
+      activeProfileId: "profile-1",
+    })
+    createClientMock.mockImplementation(() => ({
+      session: {
+        ping: pingMock,
+        getServerInfo: serverInfoMock,
+      },
+    }))
+
+    renderRootLayout(["/overview"])
+
+    await waitFor(() => {
+      expect(screen.getByText("Overview Screen")).not.toBeNull()
+    })
+    pingMock.mockClear()
+    serverInfoMock.mockClear()
+
+    act(() => {
+      useConnectionStore.getState().clearValidation()
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText("Overview Screen")).not.toBeNull()
+    })
+    expect(pingMock).toHaveBeenCalledTimes(1)
+    expect(serverInfoMock).toHaveBeenCalledTimes(1)
+  })
+
   it("does not auto-redirect away when connect is opened from navigation", async () => {
     renderRootLayout(["/overview"])
 
@@ -154,6 +291,42 @@ describe("RootLayout", () => {
 
     await waitFor(() => {
       expect(screen.getByText("Connect Screen")).not.toBeNull()
+    })
+  })
+
+  it("returns to the protected route after reconnecting from redirected connect", async () => {
+    useConnectionStore.setState({
+      lastValidatedAt: null,
+      lastServerInfo: null,
+    })
+
+    const view = renderRootLayout([{ pathname: "/", state: { redirectedFrom: "/overview" } }])
+
+    expect(screen.getByText("Connect Screen")).not.toBeNull()
+
+    useConnectionStore.setState({
+      lastValidatedAt: "2026-03-26T07:00:00.000Z",
+      lastServerInfo: {
+        product: "rclone",
+        version: "1.70.0",
+        apiBaseUrl: "http://localhost:5572",
+      },
+    })
+    view.rerender(
+      <AppProviders>
+        <MemoryRouter initialEntries={[{ pathname: "/", state: { redirectedFrom: "/overview" } }]}>
+          <Routes>
+            <Route path="/" element={<RootLayout />}>
+              <Route index element={<div>Connect Screen</div>} />
+              <Route path="overview" element={<div>Overview Screen</div>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </AppProviders>,
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText("Overview Screen")).not.toBeNull()
     })
   })
 

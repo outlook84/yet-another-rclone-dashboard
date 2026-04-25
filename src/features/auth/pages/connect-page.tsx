@@ -1,7 +1,6 @@
 import { Save, Trash2 } from "lucide-react"
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useMemo, useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { createRcloneRcAppApiClient } from "@/shared/api/client/app-api-client"
 import { useExplorerUIStore } from "@/features/explorer/store/explorer-ui-store"
 import { useOverviewStore } from "@/features/overview/store/overview-store"
 import { PageShell } from "@/shared/components/page-shell"
@@ -29,8 +28,8 @@ import {
   toDraftFromProfile,
   type ConnectionDraft,
 } from "@/features/auth/lib/connection-draft"
+import { validateConnectionAndDetectAuthMode } from "@/features/auth/lib/validate-connection"
 import { buildConnectionScope, useConnectionScope } from "@/shared/hooks/use-connection-scope"
-import type { AuthMode } from "@/shared/api/contracts/auth"
 import { useConnectionStore } from "@/shared/store/connection-store"
 
 function resolveSavedProfileName(profile: SavedConnectionProfile, draft: ConnectionDraft) {
@@ -50,48 +49,6 @@ type SaveAndConnectParams = {
   profileId: string | null
 }
 
-async function validateConnectionWithMode(input: {
-  baseUrl: string
-  authMode: AuthMode
-  basicCredentials: { username: string; password: string }
-}) {
-  const client = createRcloneRcAppApiClient({
-    baseUrl: input.baseUrl,
-    authMode: input.authMode,
-    basicCredentials: input.basicCredentials,
-  })
-
-  const [ping, serverInfo] = await Promise.all([
-    client.session.ping(),
-    client.session.getServerInfo(),
-  ])
-
-  return {
-    ping,
-    serverInfo,
-    authMode: input.authMode,
-  }
-}
-
-async function validateConnectionAndDetectAuthMode(input: {
-  baseUrl: string
-  authMode: AuthMode
-  basicCredentials: { username: string; password: string }
-}) {
-  if (input.authMode === "basic") {
-    try {
-      return await validateConnectionWithMode({
-        ...input,
-        authMode: "none",
-      })
-    } catch {
-      return validateConnectionWithMode(input)
-    }
-  }
-
-  return validateConnectionWithMode(input)
-}
-
 function ConnectPage() {
   const { locale, messages } = useI18n()
   const {
@@ -100,8 +57,6 @@ function ConnectPage() {
     basicCredentials,
     syncEnabled,
     uploadEnabled,
-    lastValidatedAt,
-    lastServerInfo,
     applyConnection,
     markValidated,
   } = useConnectionStore()
@@ -123,23 +78,24 @@ function ConnectPage() {
     syncEnabled,
     uploadEnabled,
   }), [authMode, baseUrl, basicCredentials, syncEnabled, uploadEnabled])
-  const [initialAutoConnectTarget] = useState<SaveAndConnectParams | null>(() => {
+  const [initialSelectedProfileId] = useState<string | null>(() => {
     const activeProfile = activeProfileId === null
       ? null
       : profiles.find((profile) => profile.id === activeProfileId) ?? null
 
-    return activeProfile && areDraftSettingsEqual(runtimeDraft, activeProfile)
-      ? {
-          draft: toDraftFromProfile(activeProfile),
-          profileId: activeProfile.id,
-        }
-      : null
+    return activeProfile && areDraftSettingsEqual(runtimeDraft, activeProfile) ? activeProfile.id : null
   })
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(
-    () => initialAutoConnectTarget?.profileId ?? null,
+    () => initialSelectedProfileId,
   )
   const [currentDraft, setCurrentDraft] = useState<ConnectionDraft>(
-    () => initialAutoConnectTarget?.draft ?? runtimeDraft,
+    () => {
+      const activeProfile = initialSelectedProfileId === null
+        ? null
+        : profiles.find((profile) => profile.id === initialSelectedProfileId) ?? null
+
+      return activeProfile ? toDraftFromProfile(activeProfile) : runtimeDraft
+    },
   )
   const currentProfile = useMemo(
     () => (selectedProfileId === null
@@ -147,7 +103,6 @@ function ConnectPage() {
       : profiles.find((profile) => profile.id === selectedProfileId) ?? null),
     [selectedProfileId, profiles],
   )
-  const hasAutoConnectedRef = useRef(false)
   const updateCurrentDraft = (updater: (draft: ConnectionDraft) => ConnectionDraft) => {
     validateConnection.reset()
     setCurrentDraft((draft) => updater(draft))
@@ -242,15 +197,6 @@ function ConnectPage() {
     },
   })
   const isValidationPending = validateConnection.isPending
-
-  useEffect(() => {
-    if (hasAutoConnectedRef.current || lastValidatedAt || lastServerInfo || !initialAutoConnectTarget) {
-      return
-    }
-
-    hasAutoConnectedRef.current = true
-    validateConnection.mutate(initialAutoConnectTarget)
-  }, [initialAutoConnectTarget, lastServerInfo, lastValidatedAt, validateConnection])
 
   const handleApplySavedConnection = (profileId: string) => {
     if (isValidationPending) {

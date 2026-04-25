@@ -102,7 +102,6 @@ function ExplorerPage() {
     state.scopeKey ? state.actionsByScope[state.scopeKey]?.pendingRenameAction : null,
   )
   const setPendingRenameAction = useExplorerUIStore((state) => state.setPendingRenameAction)
-  const authMode = useConnectionStore((state) => state.authMode)
   const apiBaseUrl = useConnectionStore((state) => state.lastServerInfo?.apiBaseUrl ?? state.baseUrl)
   const [publicLink, setPublicLink] = useState<PublicLinkState>(null)
   const [filterText, setFilterText] = useState("")
@@ -183,10 +182,9 @@ function ExplorerPage() {
     [activeTabId, messages.explorer, tabLabels],
   )
   const isRcServeAvailabilityPending =
-    authMode === "none" &&
     rcServeAvailabilityQuery.data === undefined &&
     (rcServeAvailabilityQuery.isPending || rcServeAvailabilityQuery.isLoading)
-  const rcServeAvailable = authMode === "none" && rcServeAvailabilityQuery.data === true
+  const rcServeAvailable = rcServeAvailabilityQuery.data === true
   const downloadFromRcServe = useCallback((item: PendingTransferItem) => {
     if (!rcServeAvailable || !currentRemote) {
       return
@@ -462,10 +460,10 @@ function ExplorerPage() {
   }, [currentPath, currentRemote, supportsPublicLink])
 
   useEffect(() => {
-    if (currentRemote && authMode === "none" && rcServeAvailabilityQuery.data === false) {
+    if (currentRemote && rcServeAvailabilityQuery.data === false) {
       setMediaPreview(null)
     }
-  }, [authMode, currentRemote, rcServeAvailabilityQuery.data, setMediaPreview])
+  }, [currentRemote, rcServeAvailabilityQuery.data, setMediaPreview])
 
   useEffect(() => {
     setFilterText("")
@@ -677,7 +675,7 @@ function ExplorerPage() {
               explorerQuery.refetch(),
               fsInfoQuery.refetch(),
               supportsAbout ? usageQuery.refetch() : Promise.resolve(),
-              authMode === "none" ? rcServeAvailabilityQuery.refetch() : Promise.resolve(),
+              rcServeAvailabilityQuery.refetch(),
             ])
           } finally {
             setIsRefreshingLocation(false)

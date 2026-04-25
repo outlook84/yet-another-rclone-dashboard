@@ -1,8 +1,8 @@
 import { useQuery } from "@tanstack/react-query"
 import { buildRcServeProbeUrl } from "@/features/explorer/lib/rc-serve-url"
-import { useConnectionScope } from "@/shared/hooks/use-connection-scope"
+import { useSavedConnectionsStore } from "@/features/auth/store/saved-connections-store"
+import { buildConnectionScope } from "@/shared/hooks/use-connection-scope"
 import { queryKeys } from "@/shared/lib/query-keys"
-import { useConnectionStore } from "@/shared/store/connection-store"
 
 async function probeRcServeAvailability(url: string): Promise<boolean> {
   const controller = new AbortController()
@@ -29,14 +29,21 @@ async function probeRcServeAvailability(url: string): Promise<boolean> {
 }
 
 function useRcServeAvailabilityQuery() {
-  const connectionScope = useConnectionScope()
-  const authMode = useConnectionStore((state) => state.authMode)
-  const apiBaseUrl = useConnectionStore((state) => state.lastServerInfo?.apiBaseUrl ?? state.baseUrl)
+  const profiles = useSavedConnectionsStore((state) => state.profiles)
+  const activeProfileId = useSavedConnectionsStore((state) => state.activeProfileId)
+  const activeProfile = profiles.find((profile) => profile.id === activeProfileId) ?? null
+  const profileScope = activeProfile === null
+    ? ""
+    : buildConnectionScope({
+        baseUrl: activeProfile.baseUrl,
+        authMode: activeProfile.authMode,
+        username: activeProfile.basicCredentials.username,
+      })
 
   return useQuery({
-    queryKey: queryKeys.rcServe(connectionScope),
-    queryFn: () => probeRcServeAvailability(buildRcServeProbeUrl(apiBaseUrl)),
-    enabled: authMode === "none",
+    queryKey: queryKeys.rcServe(profileScope),
+    queryFn: () => probeRcServeAvailability(buildRcServeProbeUrl(activeProfile?.baseUrl ?? "")),
+    enabled: activeProfile?.authMode === "none" && Boolean(activeProfile.baseUrl),
     staleTime: Number.POSITIVE_INFINITY,
     gcTime: Number.POSITIVE_INFINITY,
     retry: 2,

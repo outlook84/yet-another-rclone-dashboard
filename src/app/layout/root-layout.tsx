@@ -1,4 +1,4 @@
-import { useIsFetching } from "@tanstack/react-query"
+import { useIsFetching, useMutation } from "@tanstack/react-query"
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent } from "react"
 import { Link, Navigate, Outlet, useLocation, useNavigationType } from "react-router-dom"
 import {
@@ -21,8 +21,12 @@ import { useStatsPollingStore } from "@/features/jobs/store/stats-polling-store"
 import { MediaPreviewOverlay } from "@/features/explorer/components/media-preview-overlay"
 import { useExplorerUIStore } from "@/features/explorer/store/explorer-ui-store"
 import { GlobalUploadCenter } from "@/features/uploads/components/global-upload-center"
+import { toDraftFromProfile } from "@/features/auth/lib/connection-draft"
+import { validateConnection } from "@/features/auth/lib/validate-connection"
+import { useSavedConnectionsStore } from "@/features/auth/store/saved-connections-store"
 import { Badge } from "@/shared/components/ui/badge"
 import { Button } from "@/shared/components/ui/button"
+import { LoadingState } from "@/shared/components/loading-state"
 import { NativeSelect } from "@/shared/components/ui/native-select"
 import { cn } from "@/shared/lib/cn"
 import { queryKeys } from "@/shared/lib/query-keys"
@@ -240,7 +244,11 @@ function RootLayout() {
   const [mobileNavExtrasReady, setMobileNavExtrasReady] = useState(false)
   const lastValidatedAt = useConnectionStore((state) => state.lastValidatedAt)
   const lastServerInfo = useConnectionStore((state) => state.lastServerInfo)
+  const applyConnection = useConnectionStore((state) => state.applyConnection)
+  const markValidated = useConnectionStore((state) => state.markValidated)
   const clearValidation = useConnectionStore((state) => state.clearValidation)
+  const profiles = useSavedConnectionsStore((state) => state.profiles)
+  const activeProfileId = useSavedConnectionsStore((state) => state.activeProfileId)
   const headerContent = usePageChromeStore((state) => state.headerContent)
   const statsPollingIntervalMs = useStatsPollingStore((state) => state.intervalMs)
   const setStatsPollingIntervalMs = useStatsPollingStore((state) => state.setIntervalMs)
@@ -252,6 +260,14 @@ function RootLayout() {
   const clearAllMediaPreviews = useExplorerUIStore((state) => state.clearAllMediaPreviews)
   const isValidated = Boolean(lastValidatedAt && lastServerInfo)
   const requiresConnection = location.pathname !== "/"
+  const redirectedFrom = typeof location.state?.redirectedFrom === "string"
+    ? location.state.redirectedFrom
+    : null
+  const activeProfile = useMemo(
+    () => profiles.find((profile) => profile.id === activeProfileId) ?? null,
+    [activeProfileId, profiles],
+  )
+  const shouldAutoReconnect = requiresConnection && !isValidated && activeProfile !== null
   const activeStatsFetches = useIsFetching({
     queryKey: queryKeys.combinedStats(connectionScope),
   })
@@ -287,6 +303,34 @@ function RootLayout() {
     [location.pathname, navItems],
   )
   const connectionHealthQuery = useConnectionHealthQuery()
+  const autoReconnectProfileIdRef = useRef<string | null>(null)
+  const autoReconnectMutation = useMutation({
+    mutationFn: async () => {
+      if (!activeProfile) {
+        throw new Error("No active saved profile")
+      }
+
+      const draft = toDraftFromProfile(activeProfile)
+      const result = await validateConnection({
+        baseUrl: draft.baseUrl,
+        authMode: draft.authMode,
+        basicCredentials: draft.basicCredentials,
+      })
+
+      return {
+        draft,
+        result,
+      }
+    },
+    onSuccess: ({ draft, result }) => {
+      applyConnection({
+        ...draft,
+        authMode: result.authMode,
+      })
+      markValidated(result.serverInfo)
+      autoReconnectProfileIdRef.current = null
+    },
+  })
   const consecutiveFailures = useConsecutiveConnectionFailures({
     isValidated,
     dataUpdatedAt: connectionHealthQuery.dataUpdatedAt,
@@ -301,6 +345,22 @@ function RootLayout() {
     setMobileNavExtrasReady(false)
     setOpened(true)
   }
+
+  useEffect(() => {
+    if (!shouldAutoReconnect) {
+      autoReconnectProfileIdRef.current = null
+      return
+    }
+  }, [shouldAutoReconnect])
+
+  useEffect(() => {
+    if (!shouldAutoReconnect || !activeProfile || autoReconnectProfileIdRef.current === activeProfile.id) {
+      return
+    }
+
+    autoReconnectProfileIdRef.current = activeProfile.id
+    autoReconnectMutation.mutate()
+  }, [activeProfile, autoReconnectMutation, shouldAutoReconnect])
 
   useEffect(() => {
     if (isValidated && consecutiveFailures >= MAX_CONSECUTIVE_CONNECTION_FAILURES) {
@@ -370,7 +430,15 @@ function RootLayout() {
   const showStatsRefreshSpinner = useHeldSpinner(isStatsRefreshing, 650)
 
   if (!isValidated && requiresConnection) {
+    if (shouldAutoReconnect && !autoReconnectMutation.isError) {
+      return <LoadingState message={messages.connection.checking()} className="p-6" />
+    }
+
     return <Navigate to="/" replace state={{ redirectedFrom: location.pathname }} />
+  }
+
+  if (isValidated && location.pathname === "/" && redirectedFrom) {
+    return <Navigate to={redirectedFrom} replace />
   }
 
   if (
