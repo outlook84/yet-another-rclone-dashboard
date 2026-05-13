@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 import { useSharedGlobalStatsQuery } from "@/features/jobs/api/use-global-stats-query"
 import { useStopJobMutation } from "@/features/jobs/api/use-stop-job-mutation"
 import { formatBytes, formatDateTime, formatEta, formatProgressPercent, formatRate, getCurrentThroughput } from "@/features/jobs/lib/display-utils"
-import { buildGroupDisplayModel, buildTransferDisplayModel, compareTransferDatesDesc } from "@/features/jobs/lib/transfer-display"
+import { buildGroupDisplayModel, buildPastGroupModels, buildTransferDisplayModel, compareTransferDatesDesc } from "@/features/jobs/lib/transfer-display"
 import { MutationFeedbacks } from "@/shared/components/mutation-feedbacks"
 import { PageShell } from "@/shared/components/page-shell"
 import { QueryErrorAlert } from "@/shared/components/query-error-alert"
@@ -126,9 +126,100 @@ function JobsPage() {
     return true
   })
 
+  const pastTransferGroups = buildPastGroupModels(visiblePastTransfers)
+  const hasNamedPastGroups = pastTransferGroups.some((group) => group.label !== null)
+  const [expandedPastGroups, setExpandedPastGroups] = useState<Set<string>>(new Set())
+
+  const togglePastGroup = (key: string) => {
+    setExpandedPastGroups((current) => {
+      const next = new Set(current)
+      if (next.has(key)) {
+        next.delete(key)
+      } else {
+        next.add(key)
+      }
+      return next
+    })
+  }
+
   useEffect(() => {
     setActiveTransfersExpanded(hasRunningJobs)
   }, [hasRunningJobs])
+
+  function renderPastTransferItem(item: (typeof visiblePastTransfers)[number], index: number) {
+    const itemDisplay = buildTransferDisplayModel(item)
+    const failed = Boolean(item.error)
+    const statusLabel = failed ? messages.jobs.statusFailed() : messages.jobs.statusCompleted()
+
+    return (
+      <div
+        key={`${item.group ?? "transfer"}-${item.name ?? "item"}-${item.completedAt ?? index}`}
+        className={`px-4 py-4 ${index === 0 ? "" : "border-t border-[color:var(--app-border)]"}`}
+      >
+        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between md:gap-4">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <ExpandableText
+                compact={compactText}
+                value={itemDisplay.leafName}
+                collapsedClassName="truncate font-medium text-[color:var(--app-text)]"
+                expandedClassName="text-left whitespace-normal break-all font-medium text-[color:var(--app-text)]"
+              />
+              {item.what ? (
+                <span className="rounded-full border border-[color:var(--app-border)] bg-[color:var(--app-panel-strong)] px-2 py-0.5 text-[11px] font-normal text-[color:var(--app-text-soft)]">
+                  {item.what}
+                </span>
+              ) : null}
+              <span
+                className={cn(
+                  "rounded-full border px-2 py-0.5 text-xs font-normal",
+                  failed
+                    ? "border-[color:var(--app-danger-border)] bg-[color:var(--app-danger-hover-focus-bg)] text-[color:var(--app-danger-text-strong)]"
+                    : "border-[color:var(--app-border)] bg-[color:var(--app-surface-subtle)] text-[color:var(--app-text-soft)]",
+                )}
+              >
+                {statusLabel}
+              </span>
+            </div>
+            {itemDisplay.sourceText ? (
+              <ExpandableText
+                compact={compactText}
+                value={`${messages.explorer.source()}: ${itemDisplay.sourceText}`}
+                collapsedClassName="mt-1 truncate text-xs text-[color:var(--app-text-soft)]"
+                expandedClassName="mt-1 text-left whitespace-normal break-all text-xs text-[color:var(--app-text-soft)]"
+              />
+            ) : null}
+            {itemDisplay.destinationText ? (
+              <ExpandableText
+                compact={compactText}
+                value={`${itemDisplay.destinationUsesStorageLabel ? messages.jobs.targetStorage() : messages.explorer.destination()}: ${itemDisplay.destinationText}`}
+                collapsedClassName="mt-1 truncate text-xs text-[color:var(--app-text-soft)]"
+                expandedClassName="mt-1 text-left whitespace-normal break-all text-xs text-[color:var(--app-text-soft)]"
+              />
+            ) : null}
+            {hasBackendText(item.error) ? (
+              <ExpandableText
+                compact={compactText}
+                value={formatBackendText(item.error)}
+                collapsedClassName="mt-2 truncate text-sm text-[color:var(--app-danger-text-strong)]"
+                expandedClassName="mt-2 text-left whitespace-normal break-words text-sm text-[color:var(--app-danger-text-strong)]"
+              />
+            ) : null}
+          </div>
+          <div className="flex shrink-0 flex-col gap-1 text-sm text-[color:var(--app-text-soft)] md:items-end">
+            <div className="whitespace-nowrap">
+              {formatBytes(item.bytes, locale)} / {formatBytes(item.size, locale)}
+            </div>
+            {item.completedAt ? (
+              <div className="whitespace-nowrap">
+                {messages.jobs.completedAt()} / {formatDateTime(item.completedAt, locale)}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <PageShell title={messages.jobs.title()} hideBadge hideHeader bareContent contentStyle={{ paddingTop: 4 }}>
@@ -338,82 +429,53 @@ function JobsPage() {
           {globalQuery.isLoading && !globalQuery.data ? (
             <LoadingState message={messages.jobs.pastTransfers()} />
           ) : visiblePastTransfers.length ? (
-            <div className="overflow-hidden rounded-[10px] border border-[color:var(--app-border)] bg-[color:var(--app-panel)]">
-              {visiblePastTransfers.map((item, index) => {
-                const itemDisplay = buildTransferDisplayModel(item)
-                const failed = Boolean(item.error)
-                const statusLabel = failed ? messages.jobs.statusFailed() : messages.jobs.statusCompleted()
-
-                return (
-                  <div
-                    key={`${item.group ?? "transfer"}-${item.name ?? "item"}-${item.completedAt ?? index}`}
-                    className={`px-4 py-4 ${index === 0 ? "" : "border-t border-[color:var(--app-border)]"}`}
-                  >
-                    <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between md:gap-4">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <ExpandableText
-                            compact={compactText}
-                            value={itemDisplay.leafName}
-                            collapsedClassName="truncate font-medium text-[color:var(--app-text)]"
-                            expandedClassName="text-left whitespace-normal break-all font-medium text-[color:var(--app-text)]"
-                          />
-                          {item.what ? (
-                            <span className="rounded-full border border-[color:var(--app-border)] bg-[color:var(--app-panel-strong)] px-2 py-0.5 text-[11px] font-normal text-[color:var(--app-text-soft)]">
-                              {item.what}
+            hasNamedPastGroups ? (
+              <div className="flex flex-col gap-4">
+                {pastTransferGroups.map((group) => {
+                  const expanded = expandedPastGroups.has(group.key)
+                  const groupLabel = group.label ?? messages.jobs.pastGroupUngrouped()
+                  const summary =
+                    group.failedCount === 0
+                      ? messages.jobs.pastGroupSuccessOnly(group.successCount)
+                      : group.successCount === 0
+                        ? messages.jobs.pastGroupAllFailed(group.failedCount)
+                        : messages.jobs.pastGroupMixed(group.successCount, group.failedCount)
+                  return (
+                    <Card key={group.key} className="overflow-hidden">
+                      <CardContent className="p-4">
+                        <button
+                          type="button"
+                          onClick={() => togglePastGroup(group.key)}
+                          className="flex w-full items-center justify-between gap-3 text-left"
+                        >
+                          <div className="flex min-w-0 items-center gap-2">
+                            <ChevronDown
+                              className={`h-4 w-4 shrink-0 text-[color:var(--app-text-soft)] transition-transform ${expanded ? "" : "-rotate-90"}`}
+                            />
+                            <span className="truncate font-medium text-[color:var(--app-text)]">{groupLabel}</span>
+                          </div>
+                          <div className="flex shrink-0 flex-wrap items-center justify-end gap-x-2 gap-y-1 text-[13px] text-[color:var(--app-text-soft)]">
+                            <span className="whitespace-nowrap">{summary}</span>
+                            <span className="whitespace-nowrap">
+                              {formatBytes(group.totalBytes, locale)} / {formatBytes(group.totalSize, locale)}
                             </span>
-                          ) : null}
-                          <span
-                            className={cn(
-                              "rounded-full border px-2 py-0.5 text-xs font-normal",
-                              failed
-                                ? "border-[color:var(--app-danger-border)] bg-[color:var(--app-danger-hover-focus-bg)] text-[color:var(--app-danger-text-strong)]"
-                                : "border-[color:var(--app-border)] bg-[color:var(--app-surface-subtle)] text-[color:var(--app-text-soft)]",
-                            )}
-                          >
-                            {statusLabel}
-                          </span>
-                        </div>
-                        {itemDisplay.sourceText ? (
-                           <ExpandableText
-                             compact={compactText}
-                             value={`${messages.explorer.source()}: ${itemDisplay.sourceText}`}
-                             collapsedClassName="mt-1 truncate text-xs text-[color:var(--app-text-soft)]"
-                             expandedClassName="mt-1 text-left whitespace-normal break-all text-xs text-[color:var(--app-text-soft)]"
-                           />
-                        ) : null}
-                        {itemDisplay.destinationText ? (
-                          <ExpandableText
-                            compact={compactText}
-                            value={`${itemDisplay.destinationUsesStorageLabel ? messages.jobs.targetStorage() : messages.explorer.destination()}: ${itemDisplay.destinationText}`}
-                             collapsedClassName="mt-1 truncate text-xs text-[color:var(--app-text-soft)]"
-                             expandedClassName="mt-1 text-left whitespace-normal break-all text-xs text-[color:var(--app-text-soft)]"
-                          />
-                        ) : null}
-                         {hasBackendText(item.error) ? (
-                           <ExpandableText
-                             compact={compactText}
-                             value={formatBackendText(item.error)}
-                             collapsedClassName="mt-2 truncate text-sm text-[color:var(--app-danger-text-strong)]"
-                             expandedClassName="mt-2 text-left whitespace-normal break-words text-sm text-[color:var(--app-danger-text-strong)]"
-                           />
-                        ) : null}
-                      </div>
-                      <div className="flex shrink-0 flex-col gap-1 text-sm text-[color:var(--app-text-soft)] md:items-end">
-                        <div className="whitespace-nowrap">
-                          {formatBytes(item.bytes, locale)} / {formatBytes(item.size, locale)}
-                        </div>
-                        {item.completedAt ? (
-                          <div className="whitespace-nowrap">
-                            {messages.jobs.completedAt()} / {formatDateTime(item.completedAt, locale)}
+                          </div>
+                        </button>
+                        {expanded ? (
+                          <div className="mt-3 overflow-hidden rounded-[10px] border border-[color:var(--app-border)] bg-[color:var(--app-panel)]">
+                            {group.items.map((item, itemIndex) => renderPastTransferItem(item, itemIndex))}
                           </div>
                         ) : null}
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+                      </CardContent>
+                    </Card>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="overflow-hidden rounded-[10px] border border-[color:var(--app-border)] bg-[color:var(--app-panel)]">
+                {visiblePastTransfers.map((item, index) => renderPastTransferItem(item, index))}
+              </div>
+            )
           ) : (
             <EmptyState description={messages.jobs.noPastTransfers()} />
           )}

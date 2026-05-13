@@ -134,10 +134,100 @@ function buildGroupDisplayModel(items: Array<Pick<TransferItem, "name" | "srcFs"
   }
 }
 
+type PastGroupModel = {
+  key: string
+  label: string | null
+  items: PastTransferItem[]
+  totalBytes: number
+  totalSize: number
+  successCount: number
+  failedCount: number
+  earliestStartedAt: string | null
+  latestCompletedAt: string | null
+  display: TransferDisplayModel
+}
+
+function isAnonymousGroup(group?: string): boolean {
+  return !group || group.startsWith("job/")
+}
+
+function buildPastGroupModels(items: PastTransferItem[]): PastGroupModel[] {
+  const named = new Map<string, PastGroupModel>()
+  const anonymousItems: PastTransferItem[] = []
+
+  for (const item of items) {
+    if (isAnonymousGroup(item.group)) {
+      anonymousItems.push(item)
+      continue
+    }
+
+    const key = item.group as string
+    let model = named.get(key)
+    if (!model) {
+      model = {
+        key,
+        label: key,
+        items: [],
+        totalBytes: 0,
+        totalSize: 0,
+        successCount: 0,
+        failedCount: 0,
+        earliestStartedAt: null,
+        latestCompletedAt: null,
+        display: { leafName: key, sourceText: null, destinationText: null, destinationUsesStorageLabel: false },
+      }
+      named.set(key, model)
+    }
+    model.items.push(item)
+    model.totalBytes += item.bytes ?? 0
+    model.totalSize += item.size ?? 0
+    if (item.error) {
+      model.failedCount++
+    } else {
+      model.successCount++
+    }
+    if (item.startedAt && (!model.earliestStartedAt || item.startedAt < model.earliestStartedAt)) {
+      model.earliestStartedAt = item.startedAt
+    }
+    if (item.completedAt && (!model.latestCompletedAt || item.completedAt > model.latestCompletedAt)) {
+      model.latestCompletedAt = item.completedAt
+    }
+  }
+
+  for (const model of named.values()) {
+    model.display = buildGroupDisplayModel(model.items)
+  }
+
+  const namedGroups = Array.from(named.values()).sort((a, b) =>
+    compareTransferDatesDesc(a.latestCompletedAt ?? undefined, b.latestCompletedAt ?? undefined),
+  )
+
+  if (anonymousItems.length > 0) {
+    const anonModel: PastGroupModel = {
+      key: "__ungrouped__",
+      label: null,
+      items: anonymousItems,
+      totalBytes: anonymousItems.reduce((sum, i) => sum + (i.bytes ?? 0), 0),
+      totalSize: anonymousItems.reduce((sum, i) => sum + (i.size ?? 0), 0),
+      successCount: anonymousItems.filter((i) => !i.error).length,
+      failedCount: anonymousItems.filter((i) => Boolean(i.error)).length,
+      earliestStartedAt: null,
+      latestCompletedAt: null,
+      display: buildGroupDisplayModel(anonymousItems),
+    }
+    namedGroups.push(anonModel)
+  }
+
+  return namedGroups
+}
+
+export type { PastGroupModel }
 export {
   buildGroupDisplayModel,
+  buildPastGroupModels,
   buildTransferDisplayModel,
   compareTransferDatesDesc,
+  isAnonymousGroup,
   parseFsLabel,
   splitTransferName,
 }
