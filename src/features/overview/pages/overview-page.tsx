@@ -318,7 +318,15 @@ function OverviewPage() {
           <SummaryCard label={messages.overview.elapsedTime()} value={formatElapsedTime(overviewStats?.elapsedTime, locale)} />
           <SummaryCard label={messages.overview.activeTransfers()} value={activeTransfers} />
           <SummaryCard label={messages.overview.completedTransfers()} value={overviewStats?.transfers ?? 0} />
-          <SummaryCard label={messages.overview.transferredBytes()} value={formatBytes(overviewStats?.bytes, locale)} />
+          <SummaryCard
+            label={messages.overview.transferredBytes()}
+            value={formatBytes(
+              (overviewStats?.bytes ?? 0) +
+                (overviewStats?.serverSideCopyBytes ?? 0) +
+                (overviewStats?.serverSideMoveBytes ?? 0),
+              locale,
+            )}
+          />
           <SummaryCard label={messages.overview.errorCount()} value={overviewStats?.errors ?? 0} />
           <SummaryCard label={messages.overview.deletes()} value={overviewStats?.deletes ?? 0} />
         </div>

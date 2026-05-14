@@ -229,4 +229,36 @@ describe("OverviewPage", () => {
 
     expect(container.querySelector('path[stroke="var(--app-accent)"]')).toBeNull()
   })
+
+  it("includes server-side copy and move bytes in the Transferred bytes tile", () => {
+    // Regression for the overview tile undercount when rclone's bytes
+    // mostly flow through the server-side path (e.g. S3 -> S3 copy,
+    // macOS local-to-local via copyfile()). The per-transfer `bytes`
+    // counter stays low while `serverSideCopyBytes` / `serverSideMoveBytes`
+    // accumulate the real movement. The tile must sum all three.
+    sharedGlobalStatsQueryMock.mockReturnValue({
+      data: {
+        stats: {
+          elapsedTime: 120,
+          transfers: 50,
+          bytes: 1 * 1024 * 1024 * 1024, // 1 GiB streamed
+          serverSideCopyBytes: 100 * 1024 * 1024 * 1024, // 100 GiB server-side copy
+          serverSideMoveBytes: 10 * 1024 * 1024 * 1024, // 10 GiB server-side move
+          errors: 0,
+          deletes: 0,
+          transferring: [],
+        },
+        globalStats: {},
+      },
+      dataUpdatedAt: fixedNow,
+      error: null,
+    })
+
+    renderWithProviders(<OverviewPage />)
+
+    // 1 + 100 + 10 = 111 GiB-worth of bytes. formatBytes uses base-2 math
+    // with SI labels ("GB"), so the rendered string is "111 GB". The buggy
+    // version (reading only `bytes`) would show "1 GB".
+    expect(screen.getByText(/111\s*GB/i)).not.toBeNull()
+  })
 })

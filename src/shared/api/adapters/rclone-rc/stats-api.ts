@@ -175,6 +175,10 @@ function mapTransferStats(response: Record<string, unknown>): TransferStats {
   return {
     speed: typeof response.speed === "number" ? response.speed : undefined,
     bytes: typeof response.bytes === "number" ? response.bytes : undefined,
+    serverSideCopyBytes:
+      typeof response.serverSideCopyBytes === "number" ? response.serverSideCopyBytes : undefined,
+    serverSideMoveBytes:
+      typeof response.serverSideMoveBytes === "number" ? response.serverSideMoveBytes : undefined,
     checks: typeof response.checks === "number" ? response.checks : undefined,
     transfers: typeof response.transfers === "number" ? response.transfers : undefined,
     errors: typeof response.errors === "number" ? response.errors : undefined,
