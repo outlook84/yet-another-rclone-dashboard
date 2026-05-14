@@ -3,6 +3,7 @@ import { useEffect, useState } from "react"
 import { useSharedGlobalStatsQuery } from "@/features/jobs/api/use-global-stats-query"
 import { useStopJobMutation } from "@/features/jobs/api/use-stop-job-mutation"
 import { formatBytes, formatDateTime, formatEta, formatProgressPercent, formatRate, getCurrentThroughput } from "@/features/jobs/lib/display-utils"
+import { effectiveBytes, isInFlightWithoutProgress } from "@/features/jobs/lib/effective-bytes"
 import { buildGroupDisplayModel, buildTransferDisplayModel, compareTransferDatesDesc } from "@/features/jobs/lib/transfer-display"
 import { MutationFeedbacks } from "@/shared/components/mutation-feedbacks"
 import { PageShell } from "@/shared/components/page-shell"
@@ -276,7 +277,7 @@ function JobsPage() {
                                       </div>
                                     </TableCell>
                                     <TableCell className="py-3 pr-4 whitespace-nowrap">
-                                      {formatBytes(item.bytes, locale)} / {formatBytes(item.size, locale)}
+                                      {isInFlightWithoutProgress(item) ? messages.jobs.waitingForByteProgress() : formatBytes(effectiveBytes(item), locale)} / {formatBytes(item.size, locale)}
                                     </TableCell>
                                     <TableCell className="py-3 pr-4 whitespace-nowrap">{formatRate(item.speed, locale)}</TableCell>
                                     <TableCell className="py-3 whitespace-nowrap">{formatEta(item.eta, locale)}</TableCell>
@@ -401,7 +402,7 @@ function JobsPage() {
                       </div>
                       <div className="flex shrink-0 flex-col gap-1 text-sm text-[color:var(--app-text-soft)] md:items-end">
                         <div className="whitespace-nowrap">
-                          {formatBytes(item.bytes, locale)} / {formatBytes(item.size, locale)}
+                          {isInFlightWithoutProgress(item) ? messages.jobs.waitingForByteProgress() : formatBytes(effectiveBytes(item), locale)} / {formatBytes(item.size, locale)}
                         </div>
                         {item.completedAt ? (
                           <div className="whitespace-nowrap">

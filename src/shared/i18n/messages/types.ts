@@ -263,6 +263,7 @@ type AppMessages = {
     completedAt: () => string
     targetStorage: () => string
     transfer: () => string
+    waitingForByteProgress: () => string
   }
   explorer: {
     title: () => string
