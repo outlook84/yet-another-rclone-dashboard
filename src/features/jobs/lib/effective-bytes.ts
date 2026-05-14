@@ -29,3 +29,26 @@ export function effectiveBytes(item: EffectiveBytesItem): number {
   if (item.completedAt && !item.error) return item.size ?? 0
   return 0
 }
+
+/**
+ * Detect "we are in flight and rclone has not reported any progress yet".
+ *
+ * This is the signal that the user is mid-server-side-copy: rclone has
+ * accepted the transfer (it appears in the active list with a size and a
+ * name) but no bytes have flowed through rclone's accounting hook because
+ * the actual byte movement is happening in the kernel (or remote backend).
+ *
+ * For these items rendering "0 B / X.Y GB" is misleading — better to label
+ * the transfer explicitly so the user understands why there's no progress.
+ *
+ * Detection rule: no bytes data, no completion timestamp, and we have at
+ * least a known size to compare against. (The size > 0 check rules out
+ * uninitialized rows.)
+ */
+export function isInFlightWithoutProgress(item: EffectiveBytesItem): boolean {
+  return (
+    (item.bytes ?? 0) === 0 &&
+    !item.completedAt &&
+    (item.size ?? 0) > 0
+  )
+}

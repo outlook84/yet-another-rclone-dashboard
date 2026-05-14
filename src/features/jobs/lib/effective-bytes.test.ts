@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { effectiveBytes } from "@/features/jobs/lib/effective-bytes"
+import { effectiveBytes, isInFlightWithoutProgress } from "@/features/jobs/lib/effective-bytes"
 
 describe("effectiveBytes", () => {
   it("returns the live bytes counter for streamed transfers in flight", () => {
@@ -77,5 +77,40 @@ describe("effectiveBytes", () => {
         completedAt: "2026-05-13T19:19:27Z",
       }),
     ).toBe(1_000_000_000)
+  })
+})
+
+describe("isInFlightWithoutProgress", () => {
+  it("is true for an in-flight server-side copy (bytes:0, no completedAt, size > 0)", () => {
+    expect(
+      isInFlightWithoutProgress({
+        bytes: 0,
+        size: 2_366_920_044,
+      }),
+    ).toBe(true)
+  })
+
+  it("is false once the transfer has completed (regardless of bytes)", () => {
+    expect(
+      isInFlightWithoutProgress({
+        bytes: 0,
+        size: 2_366_920_044,
+        completedAt: "2026-05-13T19:19:27Z",
+      }),
+    ).toBe(false)
+  })
+
+  it("is false for a streamed transfer that has reported any bytes", () => {
+    expect(
+      isInFlightWithoutProgress({
+        bytes: 1_000_000,
+        size: 10_000_000,
+      }),
+    ).toBe(false)
+  })
+
+  it("is false for an item with no size (uninitialized row)", () => {
+    expect(isInFlightWithoutProgress({ bytes: 0 })).toBe(false)
+    expect(isInFlightWithoutProgress({})).toBe(false)
   })
 })
