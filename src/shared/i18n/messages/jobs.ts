@@ -34,6 +34,10 @@ const jobsMessages: MessageSet<AppMessages["jobs"]> = {
     targetStorage: () => "Target Storage",
     transfer: () => "Transfer",
     waitingForByteProgress: () => "Waiting for byte progress",
+    pastGroupSuccessOnly: (count) => `${count} file${count === 1 ? "" : "s"} · all completed`,
+    pastGroupAllFailed: (count) => `${count} file${count === 1 ? "" : "s"} · all failed`,
+    pastGroupMixed: (success, failed) => `${success} completed · ${failed} failed`,
+    pastGroupUngrouped: () => "Ungrouped",
   },
   "zh-CN": {
     title: () => "任务",
@@ -68,6 +72,10 @@ const jobsMessages: MessageSet<AppMessages["jobs"]> = {
     targetStorage: () => "目标存储",
     transfer: () => "传输",
     waitingForByteProgress: () => "等待字节进度",
+    pastGroupSuccessOnly: (count) => `${count} 个文件 · 全部完成`,
+    pastGroupAllFailed: (count) => `${count} 个文件 · 全部失败`,
+    pastGroupMixed: (success, failed) => `成功 ${success} · 失败 ${failed}`,
+    pastGroupUngrouped: () => "未分组",
   },
 }
 

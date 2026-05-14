@@ -264,6 +264,10 @@ type AppMessages = {
     targetStorage: () => string
     transfer: () => string
     waitingForByteProgress: () => string
+    pastGroupSuccessOnly: (count: number) => string
+    pastGroupAllFailed: (count: number) => string
+    pastGroupMixed: (success: number, failed: number) => string
+    pastGroupUngrouped: () => string
   }
   explorer: {
     title: () => string
