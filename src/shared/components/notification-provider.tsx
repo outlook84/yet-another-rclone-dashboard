@@ -2,6 +2,7 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -77,6 +78,17 @@ function NotificationProvider({ children }: PropsWithChildren) {
   const { messages } = useI18n()
   const timeoutIdsRef = useRef<Map<number, number>>(new Map())
   const [items, setItems] = useState<NotificationItem[]>([])
+
+  useEffect(() => {
+    const timeoutIds = timeoutIdsRef.current
+
+    return () => {
+      for (const timeoutId of timeoutIds.values()) {
+        window.clearTimeout(timeoutId)
+      }
+      timeoutIds.clear()
+    }
+  }, [])
 
   const dismiss = useCallback((id: number) => {
     const timeoutId = timeoutIdsRef.current.get(id)

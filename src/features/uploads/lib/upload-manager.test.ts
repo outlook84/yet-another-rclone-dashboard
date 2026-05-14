@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { appQueryClient } from "@/app/providers/app-query-client"
 import { startManagedUpload } from "@/features/uploads/lib/upload-manager"
 import { useUploadCenterStore } from "@/features/uploads/store/upload-center-store"
@@ -42,7 +42,13 @@ class MockXMLHttpRequest {
   send(body: Document | XMLHttpRequestBodyInit | null | undefined) {
     this.body = body as FormData
     const fileEntry = this.body.get("file0") ?? this.body.get("file1")
-    const size = fileEntry instanceof File ? fileEntry.size : 0
+    const size =
+      typeof fileEntry === "object" &&
+      fileEntry !== null &&
+      "size" in fileEntry &&
+      typeof fileEntry.size === "number"
+        ? fileEntry.size
+        : 0
 
     if (size > 0) {
       this.upload.onprogress?.({
@@ -66,9 +72,18 @@ function getHeader(xhr: MockXMLHttpRequest, name: string) {
 }
 
 describe("startManagedUpload", () => {
+  afterEach(() => {
+    appQueryClient.clear()
+    window.localStorage.clear()
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
   beforeEach(() => {
     MockXMLHttpRequest.instances = []
     vi.restoreAllMocks()
+    window.localStorage.clear()
+    appQueryClient.clear()
     vi.stubGlobal("XMLHttpRequest", MockXMLHttpRequest)
     useUploadCenterStore.setState({ tasks: [], collapsed: false })
     useConnectionStore.setState({
@@ -103,14 +118,20 @@ describe("startManagedUpload", () => {
     })
 
     expect(MockXMLHttpRequest.instances).toHaveLength(2)
-    expect(MockXMLHttpRequest.instances[0]?.body?.get("file0")).toBeInstanceOf(File)
+    const firstFile = MockXMLHttpRequest.instances[0]?.body?.get("file0")
+    const secondFile = MockXMLHttpRequest.instances[1]?.body?.get("file1")
+    expect(firstFile).not.toBeNull()
     expect(MockXMLHttpRequest.instances[0]?.body?.get("file")).toBeNull()
-    expect((MockXMLHttpRequest.instances[0]?.body?.get("file0") as File).name).toBe("first.txt")
+    expect((firstFile as File).name).toBe("first.txt")
+    expect((firstFile as File).size).toBe(5)
+    expect((firstFile as File).type).toBe("text/plain")
     expect(getHeader(MockXMLHttpRequest.instances[0]!, "Authorization")).toBe(
       `Basic ${btoa("gui:secret")}`,
     )
-    expect(MockXMLHttpRequest.instances[1]?.body?.get("file1")).toBeInstanceOf(File)
-    expect((MockXMLHttpRequest.instances[1]?.body?.get("file1") as File).name).toBe("second.txt")
+    expect(secondFile).not.toBeNull()
+    expect((secondFile as File).name).toBe("second.txt")
+    expect((secondFile as File).size).toBe(5)
+    expect((secondFile as File).type).toBe("text/plain")
     expect(getHeader(MockXMLHttpRequest.instances[1]!, "Authorization")).toBe(
       `Basic ${btoa("gui:secret")}`,
     )
@@ -137,6 +158,9 @@ describe("startManagedUpload", () => {
 
     expect(MockXMLHttpRequest.instances).toHaveLength(1)
     expect(getHeader(MockXMLHttpRequest.instances[0]!, "Authorization")).toBeUndefined()
-    expect(MockXMLHttpRequest.instances[0]?.body?.get("file0")).toBeInstanceOf(File)
+    const uploadedFile = MockXMLHttpRequest.instances[0]?.body?.get("file0")
+    expect(uploadedFile).not.toBeNull()
+    expect((uploadedFile as File).name).toBe("first.txt")
+    expect((uploadedFile as File).size).toBe(5)
   })
 })
