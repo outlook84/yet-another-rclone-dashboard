@@ -3,6 +3,7 @@
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { JobsPage } from "@/features/jobs/pages/jobs-page"
+import { usePastTransferGroupsStore } from "@/features/jobs/store/past-transfer-groups-store"
 import { renderWithProviders } from "@/test/render-with-providers"
 
 const globalStatsQueryMock = vi.fn()
@@ -23,6 +24,11 @@ describe("JobsPage", () => {
   })
 
   beforeEach(() => {
+    usePastTransferGroupsStore.setState({
+      expandedByScope: {},
+      seenByScope: {},
+    })
+
     globalStatsQueryMock.mockReturnValue({
       isLoading: false,
       isFetching: false,
@@ -202,6 +208,59 @@ describe("JobsPage", () => {
 
     expect(screen.queryByText("Manual upload.bin")).toBeNull()
     expect(screen.getByText("1 group · 128 B/s")).not.toBeNull()
+  })
+
+  it("keeps collapsed past transfer groups collapsed across page navigation", () => {
+    globalStatsQueryMock.mockImplementation(() => ({
+      isLoading: false,
+      isFetching: false,
+      error: null,
+      data: {
+        stats: {
+          errors: 0,
+          deletes: 0,
+          elapsedTime: 18,
+          transferring: [],
+        },
+        mem: {
+          Alloc: 0,
+        },
+        transferred: [
+          {
+            name: "folder/First.bin",
+            bytes: 10,
+            size: 10,
+            completedAt: "2026-03-29T03:00:00Z",
+            error: "",
+            group: "job/42",
+          },
+          {
+            name: "folder/Second.bin",
+            bytes: 20,
+            size: 20,
+            completedAt: "2026-03-29T02:59:00Z",
+            error: "",
+            group: "job/42",
+          },
+        ],
+      },
+      refetch: vi.fn(),
+    }))
+
+    const view = renderWithProviders(<JobsPage />)
+
+    expect(screen.getByText("Job 42")).not.toBeNull()
+    expect(screen.getByText("First.bin")).not.toBeNull()
+
+    fireEvent.click(screen.getByRole("button", { name: /Job 42/i }))
+
+    expect(screen.queryByText("First.bin")).toBeNull()
+
+    view.unmount()
+    renderWithProviders(<JobsPage />)
+
+    expect(screen.getByText("Job 42")).not.toBeNull()
+    expect(screen.queryByText("First.bin")).toBeNull()
   })
 
   it("does not render NaN percent or invalid timestamps for bad transfer stats", () => {
