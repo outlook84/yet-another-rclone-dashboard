@@ -263,7 +263,7 @@ type AppMessages = {
     completedAt: () => string
     targetStorage: () => string
     transfer: () => string
-    serverSideCopy: () => string
+    waitingForByteProgress: () => string
   }
   explorer: {
     title: () => string

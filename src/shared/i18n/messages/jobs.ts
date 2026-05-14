@@ -33,7 +33,7 @@ const jobsMessages: MessageSet<AppMessages["jobs"]> = {
     completedAt: () => "Completed",
     targetStorage: () => "Target Storage",
     transfer: () => "Transfer",
-    serverSideCopy: () => "Server-side copy",
+    waitingForByteProgress: () => "Waiting for byte progress",
   },
   "zh-CN": {
     title: () => "任务",
@@ -67,7 +67,7 @@ const jobsMessages: MessageSet<AppMessages["jobs"]> = {
     completedAt: () => "完成时间",
     targetStorage: () => "目标存储",
     transfer: () => "传输",
-    serverSideCopy: () => "服务端复制",
+    waitingForByteProgress: () => "等待字节进度",
   },
 }
 

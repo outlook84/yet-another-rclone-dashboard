@@ -277,7 +277,7 @@ function JobsPage() {
                                       </div>
                                     </TableCell>
                                     <TableCell className="py-3 pr-4 whitespace-nowrap">
-                                      {isInFlightWithoutProgress(item) ? messages.jobs.serverSideCopy() : formatBytes(effectiveBytes(item), locale)} / {formatBytes(item.size, locale)}
+                                      {isInFlightWithoutProgress(item) ? messages.jobs.waitingForByteProgress() : formatBytes(effectiveBytes(item), locale)} / {formatBytes(item.size, locale)}
                                     </TableCell>
                                     <TableCell className="py-3 pr-4 whitespace-nowrap">{formatRate(item.speed, locale)}</TableCell>
                                     <TableCell className="py-3 whitespace-nowrap">{formatEta(item.eta, locale)}</TableCell>
@@ -402,7 +402,7 @@ function JobsPage() {
                       </div>
                       <div className="flex shrink-0 flex-col gap-1 text-sm text-[color:var(--app-text-soft)] md:items-end">
                         <div className="whitespace-nowrap">
-                          {isInFlightWithoutProgress(item) ? messages.jobs.serverSideCopy() : formatBytes(effectiveBytes(item), locale)} / {formatBytes(item.size, locale)}
+                          {isInFlightWithoutProgress(item) ? messages.jobs.waitingForByteProgress() : formatBytes(effectiveBytes(item), locale)} / {formatBytes(item.size, locale)}
                         </div>
                         {item.completedAt ? (
                           <div className="whitespace-nowrap">
