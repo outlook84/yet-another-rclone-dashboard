@@ -1,12 +1,17 @@
 // @vitest-environment jsdom
 
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 describe("locale-store", () => {
   beforeEach(() => {
+    vi.restoreAllMocks()
     vi.resetModules()
     window.localStorage.clear()
     document.documentElement.removeAttribute("lang")
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
   it("uses a supported stored locale during initialization", async () => {
@@ -34,6 +39,22 @@ describe("locale-store", () => {
     expect(window.localStorage.length).toBe(1)
     expect(window.localStorage.getItem(window.localStorage.key(0)!)).toBe("en")
     expect(document.documentElement.lang).toBe("en")
+    expect(localeStore.useLocaleStore.getState().locale).toBe("en")
+  })
+
+  it("falls back when localStorage is replaced with an incomplete mock", async () => {
+    vi.spyOn(window, "localStorage", "get").mockReturnValue({} as Storage)
+
+    Object.defineProperty(window.navigator, "language", {
+      configurable: true,
+      value: "zh-HK",
+    })
+
+    const localeStore = await import("@/shared/i18n/locale-store")
+
+    expect(localeStore.useLocaleStore.getState().locale).toBe("zh-CN")
+
+    expect(() => localeStore.useLocaleStore.getState().setLocale("en")).not.toThrow()
     expect(localeStore.useLocaleStore.getState().locale).toBe("en")
   })
 })

@@ -26,12 +26,50 @@ function normalizeLocale(value?: string | null): AppLocale {
   return "en"
 }
 
+function getLocalStorage(): Storage | null {
+  if (typeof window === "undefined") {
+    return null
+  }
+
+  try {
+    return window.localStorage
+  } catch {
+    return null
+  }
+}
+
+function readStoredLocaleValue(): string | null {
+  const storage = getLocalStorage()
+  if (!storage || typeof storage.getItem !== "function") {
+    return null
+  }
+
+  try {
+    return storage.getItem(LOCALE_STORAGE_KEY)
+  } catch {
+    return null
+  }
+}
+
+function writeStoredLocaleValue(locale: AppLocale) {
+  const storage = getLocalStorage()
+  if (!storage || typeof storage.setItem !== "function") {
+    return
+  }
+
+  try {
+    storage.setItem(LOCALE_STORAGE_KEY, locale)
+  } catch {
+    // Ignore storage failures so locale changes still update the active document.
+  }
+}
+
 function readStoredLocale(): AppLocale {
   if (typeof window === "undefined") {
     return "en"
   }
 
-  const storedLocale = window.localStorage.getItem(LOCALE_STORAGE_KEY)
+  const storedLocale = readStoredLocaleValue()
   if (isSupportedLocale(storedLocale)) {
     return storedLocale
   }
@@ -52,10 +90,7 @@ const initialLocale = readStoredLocale()
 const useLocaleStore = create<LocaleState>((set) => ({
   locale: initialLocale,
   setLocale: (locale) => {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(LOCALE_STORAGE_KEY, locale)
-    }
-
+    writeStoredLocaleValue(locale)
     applyLocale(locale)
     set({ locale })
   },
