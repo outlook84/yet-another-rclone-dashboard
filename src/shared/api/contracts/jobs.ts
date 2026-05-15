@@ -29,6 +29,14 @@ export interface JobListResult {
 export interface TransferStats {
   speed?: number
   bytes?: number
+  /**
+   * Bytes moved by rclone's server-side copy path (e.g. S3 -> S3,
+   * GCS rewrite, macOS local-to-local via copyfile()). These do NOT
+   * flow through `bytes`; rclone accumulates them separately.
+   */
+  serverSideCopyBytes?: number
+  /** Bytes moved by rclone's server-side move path. See serverSideCopyBytes. */
+  serverSideMoveBytes?: number
   checks?: number
   transfers?: number
   errors?: number

@@ -321,29 +321,36 @@ function OverviewPage() {
           <SummaryCard label={messages.overview.transferredBytes()} value={formatBytes(overviewStats?.bytes, locale)} />
           <SummaryCard label={messages.overview.errorCount()} value={overviewStats?.errors ?? 0} />
           <SummaryCard label={messages.overview.deletes()} value={overviewStats?.deletes ?? 0} />
-        </div>
-
-        <Card className="app-surface-muted">
-          <CardContent className="p-4">
-            <div className="flex flex-col gap-2">
-              <div
-                className={cn(
-                  "text-sm font-medium leading-5 text-[color:var(--app-text-soft)]",
+          <SummaryCard
+            label={messages.overview.serverSideCopyBytes()}
+            value={formatBytes(overviewStats?.serverSideCopyBytes, locale)}
+          />
+          <SummaryCard
+            label={messages.overview.serverSideMoveBytes()}
+            value={formatBytes(overviewStats?.serverSideMoveBytes, locale)}
+          />
+          <Card className="app-surface-muted col-span-2 xl:col-span-4">
+            <CardContent className="p-4">
+              <div className="flex flex-col gap-2">
+                <div
+                  className={cn(
+                    "text-sm font-medium leading-5 text-[color:var(--app-text-soft)]",
+                  )}
+                >
+                  {messages.overview.latestGlobalError()}
+                </div>
+                {hasBackendText(globalStats?.lastError) ? (
+                  <p className="text-sm text-[color:var(--app-text)]">{formatBackendText(globalStats?.lastError)}</p>
+                ) : (
+                  <p className="text-sm text-[color:var(--app-text-soft)]">
+                    {messages.overview.noRecentErrors()}{" "}
+                    {messages.overview.noRecentErrorsDetail(<InlineCode>core/stats(group=global_stats).lastError</InlineCode>)}
+                  </p>
                 )}
-              >
-                {messages.overview.latestGlobalError()}
               </div>
-              {hasBackendText(globalStats?.lastError) ? (
-                <p className="text-sm text-[color:var(--app-text)]">{formatBackendText(globalStats?.lastError)}</p>
-              ) : (
-                <p className="text-sm text-[color:var(--app-text-soft)]">
-                  {messages.overview.noRecentErrors()}{" "}
-                  {messages.overview.noRecentErrorsDetail(<InlineCode>core/stats(group=global_stats).lastError</InlineCode>)}
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
 
         {statsQuery.error ? <QueryErrorAlert title={messages.overview.failedToLoadStats()} error={statsQuery.error} /> : null}
         {remotesQuery.error ? <QueryErrorAlert title={messages.overview.failedToLoadRemotes()} error={remotesQuery.error} /> : null}

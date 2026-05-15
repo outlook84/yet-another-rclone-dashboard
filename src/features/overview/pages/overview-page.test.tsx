@@ -89,6 +89,8 @@ describe("OverviewPage", () => {
           elapsedTime: 120,
           transfers: 25,
           bytes: 18 * 1024 * 1024 * 1024,
+          serverSideCopyBytes: 100 * 1024 * 1024 * 1024,
+          serverSideMoveBytes: 10 * 1024 * 1024 * 1024,
           errors: 8,
           deletes: 24,
           transferring: [],
@@ -139,6 +141,9 @@ describe("OverviewPage", () => {
   it("shows the fallback message when there is no global error yet", () => {
     renderWithProviders(<OverviewPage />)
 
+    expect(screen.getByText("Transferred Bytes").parentElement?.textContent).toContain("18 GB")
+    expect(screen.getByText("Server-side Copy").parentElement?.textContent).toContain("100 GB")
+    expect(screen.getByText("Server-side Move").parentElement?.textContent).toContain("10 GB")
     expect(
       screen.getByText((_, element) => {
         return (
@@ -228,5 +233,31 @@ describe("OverviewPage", () => {
     const { container } = renderWithProviders(<OverviewPage />)
 
     expect(container.querySelector('path[stroke="var(--app-accent)"]')).toBeNull()
+  })
+
+  it("shows streamed, server-side copy, and server-side move bytes separately", () => {
+    sharedGlobalStatsQueryMock.mockReturnValue({
+      data: {
+        stats: {
+          elapsedTime: 120,
+          transfers: 50,
+          bytes: 1 * 1024 * 1024 * 1024, // 1 GiB streamed
+          serverSideCopyBytes: 100 * 1024 * 1024 * 1024, // 100 GiB server-side copy
+          serverSideMoveBytes: 10 * 1024 * 1024 * 1024, // 10 GiB server-side move
+          errors: 0,
+          deletes: 0,
+          transferring: [],
+        },
+        globalStats: {},
+      },
+      dataUpdatedAt: fixedNow,
+      error: null,
+    })
+
+    renderWithProviders(<OverviewPage />)
+
+    expect(screen.getByText("Transferred Bytes").parentElement?.textContent).toContain("1.0 GB")
+    expect(screen.getByText("Server-side Copy").parentElement?.textContent).toContain("100 GB")
+    expect(screen.getByText("Server-side Move").parentElement?.textContent).toContain("10 GB")
   })
 })
