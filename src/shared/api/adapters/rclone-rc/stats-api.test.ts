@@ -25,7 +25,7 @@ describe("RcloneRcStatsApi", () => {
 
         return {
           results: [
-            { speed: 10, bytes: 20 },
+            { speed: 10, bytes: 20, serverSideCopyBytes: 30, serverSideMoveBytes: 40 },
             { HeapAlloc: 1234 },
             { transferred: [{ name: "demo.txt", started_at: "2026-03-28T10:00:00Z" }] },
             { errors: 2, lastError: "global boom" },
@@ -39,7 +39,12 @@ describe("RcloneRcStatsApi", () => {
     const api = new RcloneRcStatsApi(transport)
     const result = await api.getCombinedStats("demo")
 
-    expect(result.stats).toMatchObject({ speed: 10, bytes: 20 })
+    expect(result.stats).toMatchObject({
+      speed: 10,
+      bytes: 20,
+      serverSideCopyBytes: 30,
+      serverSideMoveBytes: 40,
+    })
     expect(result.mem).toMatchObject({ HeapAlloc: 1234 })
     expect(result.transferred[0]).toMatchObject({
       name: "demo.txt",

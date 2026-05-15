@@ -33,8 +33,6 @@ export interface TransferStats {
    * Bytes moved by rclone's server-side copy path (e.g. S3 -> S3,
    * GCS rewrite, macOS local-to-local via copyfile()). These do NOT
    * flow through `bytes`; rclone accumulates them separately.
-   * Sum bytes + serverSideCopyBytes + serverSideMoveBytes for a
-   * complete "transferred this session" total.
    */
   serverSideCopyBytes?: number
   /** Bytes moved by rclone's server-side move path. See serverSideCopyBytes. */

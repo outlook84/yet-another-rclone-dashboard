@@ -89,6 +89,8 @@ describe("OverviewPage", () => {
           elapsedTime: 120,
           transfers: 25,
           bytes: 18 * 1024 * 1024 * 1024,
+          serverSideCopyBytes: 100 * 1024 * 1024 * 1024,
+          serverSideMoveBytes: 10 * 1024 * 1024 * 1024,
           errors: 8,
           deletes: 24,
           transferring: [],
@@ -139,6 +141,9 @@ describe("OverviewPage", () => {
   it("shows the fallback message when there is no global error yet", () => {
     renderWithProviders(<OverviewPage />)
 
+    expect(screen.getByText("Transferred Bytes").parentElement?.textContent).toContain("18 GB")
+    expect(screen.getByText("Server-side Copy").parentElement?.textContent).toContain("100 GB")
+    expect(screen.getByText("Server-side Move").parentElement?.textContent).toContain("10 GB")
     expect(
       screen.getByText((_, element) => {
         return (
@@ -230,12 +235,7 @@ describe("OverviewPage", () => {
     expect(container.querySelector('path[stroke="var(--app-accent)"]')).toBeNull()
   })
 
-  it("includes server-side copy and move bytes in the Transferred bytes tile", () => {
-    // Regression for the overview tile undercount when rclone's bytes
-    // mostly flow through the server-side path (e.g. S3 -> S3 copy,
-    // macOS local-to-local via copyfile()). The per-transfer `bytes`
-    // counter stays low while `serverSideCopyBytes` / `serverSideMoveBytes`
-    // accumulate the real movement. The tile must sum all three.
+  it("shows streamed, server-side copy, and server-side move bytes separately", () => {
     sharedGlobalStatsQueryMock.mockReturnValue({
       data: {
         stats: {
@@ -256,9 +256,8 @@ describe("OverviewPage", () => {
 
     renderWithProviders(<OverviewPage />)
 
-    // 1 + 100 + 10 = 111 GiB-worth of bytes. formatBytes uses base-2 math
-    // with SI labels ("GB"), so the rendered string is "111 GB". The buggy
-    // version (reading only `bytes`) would show "1 GB".
-    expect(screen.getByText(/111\s*GB/i)).not.toBeNull()
+    expect(screen.getByText("Transferred Bytes").parentElement?.textContent).toContain("1.0 GB")
+    expect(screen.getByText("Server-side Copy").parentElement?.textContent).toContain("100 GB")
+    expect(screen.getByText("Server-side Move").parentElement?.textContent).toContain("10 GB")
   })
 })
