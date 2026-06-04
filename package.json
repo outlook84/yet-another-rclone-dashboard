@@ -29,7 +29,7 @@
     "lucide-react": "^0.577.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "react-router-dom": "^7.7.1",
+    "react-router-dom": "^7.16.0",
     "tailwind-merge": "^3.5.0",
     "zustand": "^5.0.7"
   },
@@ -54,10 +54,5 @@
     "typescript-eslint": "^8.37.0",
     "vite": "7.3.2",
     "vitest": "^4.1.0"
-  },
-  "pnpm": {
-    "overrides": {
-      "picomatch": "4.0.4"
-    }
   }
 }

@@ -57,12 +57,12 @@ function preloadRoute(path: string) {
     return
   }
 
-  void load()
+  void load().catch(() => {})
 }
 
 function preloadKnownRoutes() {
   Object.values(routePreloaders).forEach((load) => {
-    void load()
+    void load().catch(() => {})
   })
 }
 
