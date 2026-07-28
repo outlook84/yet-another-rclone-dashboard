@@ -6,7 +6,7 @@ import {
   MemoryRouter,
   Route,
   Routes,
-} from "react-router-dom"
+} from "react-router"
 import { RootLayout } from "@/app/layout/root-layout"
 import { AppProviders } from "@/app/providers/app-providers"
 import { useSavedConnectionsStore } from "@/features/auth/store/saved-connections-store"

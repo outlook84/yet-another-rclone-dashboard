@@ -1,5 +1,6 @@
 import { Suspense, lazy, type ReactNode } from "react"
-import { createHashRouter, RouterProvider } from "react-router-dom"
+import { createHashRouter } from "react-router"
+import { RouterProvider } from "react-router/dom"
 import { RootLayout } from "@/app/layout/root-layout"
 import { LoadingState } from "@/shared/components/loading-state"
 import { useI18n } from "@/shared/i18n"

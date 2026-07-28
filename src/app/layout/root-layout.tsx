@@ -1,6 +1,6 @@
 import { useIsFetching, useMutation } from "@tanstack/react-query"
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ChangeEvent } from "react"
-import { Link, Navigate, Outlet, useLocation, useNavigationType } from "react-router-dom"
+import { Link, Navigate, Outlet, useLocation, useNavigationType } from "react-router"
 import {
   BriefcaseBusiness,
   ChevronDown,

@@ -1,7 +1,7 @@
 import { Loader2 } from "lucide-react"
 import { Fragment, useEffect, useMemo, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
-import { useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router"
 import { useExplorerCleanupMutation } from "@/features/explorer/api/use-explorer-cleanup-mutation"
 import { useExplorerFsInfoQuery } from "@/features/explorer/api/use-explorer-fs-info-query"
 import { useExplorerUsageQuery } from "@/features/explorer/api/use-explorer-usage-query"

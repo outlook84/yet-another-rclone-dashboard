@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom"
+import { Link } from "react-router"
 import { Button } from "@/shared/components/ui/button"
 import { useI18n } from "@/shared/i18n"
 
